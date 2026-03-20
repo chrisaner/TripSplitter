@@ -664,11 +664,23 @@
     }
 
     function closeModal(e, id) {
-      if (e && e.target.id !== id) return;
+      if (e && e.target && e.target.id !== id) return;
+
       const modal = document.getElementById(id);
+      if (!modal) return;
+
       const content = modal.querySelector('.modal-content');
-      if (content) content.style.transform = 'translateY(100%)';
-      setTimeout(() => modal.style.display = 'none', 300);
+      if (content) {
+        content.style.transition = 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)';
+        content.style.transform = 'translateY(100%)';
+      }
+
+      setTimeout(() => {
+        modal.style.display = 'none';
+        if (content) {
+          content.style.transition = '';
+        }
+      }, 250);
     }
 
     function openMemberModal() {
