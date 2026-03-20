@@ -1,614 +1,135 @@
-import React, { useState, useEffect } from 'react';
-import { initializeApp } from 'firebase/app';
-import { 
-  getFirestore, 
-  collection, 
-  doc, 
-  onSnapshot, 
-  setDoc, 
-  updateDoc, 
-  deleteDoc 
-} from 'firebase/firestore';
-import { 
-  getAuth, 
-  signInAnonymously, 
-  signInWithCustomToken, 
-  onAuthStateChanged 
-} from 'firebase/auth';
-import { 
-  LayoutDashboard, 
-  Users, 
-  Plus, 
-  Receipt, 
-  X, 
-  Trash2, 
-  ChevronRight,
-  RefreshCw,
-  TrendingUp,
-  Globe,
-  Clock,
-  Check,
-  Tag
-} from 'lucide-react';
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TripSplitter - 旅遊分帳工具 (Beta 1.0)</title>
+    <!-- 引入必要的外部庫 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
+        body { font-family: 'Noto Sans TC', sans-serif; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div id="root"></div>
 
-// --- Firebase 配置 ---
-const firebaseConfig = JSON.parse(__firebase_config);
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'tripsplitter-default';
+    <!-- 這裡必須指定 type="text/babel" 以讓 Babel 編譯 JSX -->
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
 
-// --- 幣種定義 ---
-const CURRENCIES = [
-  { code: 'TWD', symbol: 'NT$', label: '台幣', flag: '🇹🇼' },
-  { code: 'JPY', symbol: '¥', label: '日圓', flag: '🇯🇵' },
-  { code: 'KRW', symbol: '₩', label: '韓元', flag: '🇰🇷' },
-  { code: 'THB', symbol: '฿', label: '泰銖', flag: '🇹🇭' },
-  { code: 'USD', symbol: '$', label: '美金', flag: '🇺🇸' },
-  { code: 'EUR', symbol: '€', label: '歐元', flag: '🇪🇺' },
-  { code: 'VND', symbol: '₫', label: '越南盾', flag: '🇻🇳' },
-  { code: 'HKD', symbol: 'HK$', label: '港幣', flag: '🇭🇰' },
-  { code: 'SGD', symbol: 'S$', label: '新幣', flag: '🇸🇬' },
-  { code: 'CNY', symbol: '¥', label: '人民幣', flag: '🇨🇳' },
-  { code: 'GBP', symbol: '£', label: '英鎊', flag: '🇬🇧' },
-  { code: 'AUD', symbol: 'A$', label: '澳幣', flag: '🇦🇺' }
-];
-
-// --- 支出類別及其細項定義 ---
-const CATEGORIES = [
-  { id: 'food', label: '食', icon: '🍱', subs: ['早餐', '午餐', '晚餐', '零食', '飲料', '咖啡', '超市'] },
-  { id: 'clothing', label: '衣', icon: '👕', subs: ['服飾', '鞋子', '配件', '洗衣', '藥妝'] },
-  { id: 'housing', label: '住', icon: '🏠', subs: ['飯店', '民宿', '青旅', '清潔費', '寄物'] },
-  { id: 'transport', label: '行', icon: '🚗', subs: ['機票', '地鐵', '公車', '計程車', '租車', '加油', '火車'] },
-  { id: 'education', label: '育', icon: '📚', subs: ['門票', '導覽', '體驗課程', '書籍', '明信片'] },
-  { id: 'entertainment', label: '樂', icon: '🎮', subs: ['酒吧', '夜店', '遊樂園', '按摩', '電影', '演唱會'] },
-  { id: 'other', label: '其他', icon: '✨', subs: ['雜項', '保險', '網卡', '禮物'] }
-];
-
-export default function App() {
-  const [user, setUser] = useState(null);
-  const [currentTab, setCurrentTab] = useState('dashboard');
-  const [members, setMembers] = useState([]);
-  const [expenses, setExpenses] = useState([]);
-  const [kitty, setKitty] = useState({ balances: {}, history: [] });
-
-  // 匯率狀態
-  const [rates, setRates] = useState({ 
-    'TWD': 1, 'JPY': 0.21, 'USD': 32.5, 'KRW': 0.024, 'EUR': 35.2,
-    'THB': 0.92, 'HKD': 4.15, 'SGD': 24.1, 'VND': 0.0013, 'CNY': 4.5,
-    'GBP': 41.2, 'AUD': 21.5
-  });
-  const [lastRateUpdate, setLastRateUpdate] = useState(null);
-
-  // Modal 控制
-  const [showKittyModal, setShowKittyModal] = useState(false);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showMemberModal, setShowMemberModal] = useState(false);
-
-  // 編輯表單狀態
-  const [editingExpenseId, setEditingExpenseId] = useState(null);
-  const [editingMemberId, setEditingMemberId] = useState(null);
-  
-  // 核心修復：確保 formData 始終有初始陣列
-  const [formData, setFormData] = useState({
-    note: '',
-    amount: '',
-    currency: 'TWD',
-    payerId: '',
-    selectedMembers: [], // 預設為空陣列
-    categoryId: 'food',
-    date: new Date().toISOString().split('T')[0]
-  });
-  
-  const [memberFormData, setMemberFormData] = useState({ name: '', avatar: '😊' });
-  const [depositData, setDepositData] = useState({ amount: '', currency: 'TWD' });
-
-  // 1. 初始化驗證
-  useEffect(() => {
-    const initAuth = async () => {
-      try {
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-          await signInWithCustomToken(auth, __initial_auth_token);
-        } else {
-          await signInAnonymously(auth);
-        }
-      } catch (error) {
-        console.error("Auth error", error);
-      }
-    };
-    initAuth();
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-        setUser(u);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  // 2. 匯率更新
-  useEffect(() => {
-    const fetchRates = async () => {
-      try {
-        const res = await fetch('https://open.er-api.com/v6/latest/TWD');
-        const data = await res.json();
-        if (data && data.rates) {
-          const newRates = { 'TWD': 1 };
-          CURRENCIES.forEach(curr => {
-            if (curr.code !== 'TWD' && data.rates[curr.code]) {
-              newRates[curr.code] = 1 / data.rates[curr.code];
-            }
-          });
-          setRates(prev => ({ ...prev, ...newRates }));
-          setLastRateUpdate(new Date().toLocaleTimeString());
-        }
-      } catch (err) {
-        console.warn("Using default rates", err);
-      }
-    };
-    fetchRates();
-  }, []);
-
-  // 3. 數據監聽
-  useEffect(() => {
-    if (!user) return;
-
-    const membersRef = collection(db, 'artifacts', appId, 'public', 'data', 'members');
-    const unsubMembers = onSnapshot(membersRef, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      if (data.length === 0) {
-        const defaultMembers = [
-          { name: '我', avatar: '🙋‍♂️' },
-          { name: '朋友A', avatar: '👩' }
-        ];
-        defaultMembers.forEach(m => setDoc(doc(collection(db, 'artifacts', appId, 'public', 'data', 'members')), m));
-      }
-      setMembers(data);
-    }, (err) => console.error("Members snapshot error", err));
-
-    const expensesRef = collection(db, 'artifacts', appId, 'public', 'data', 'expenses');
-    const unsubExpenses = onSnapshot(expensesRef, (snapshot) => {
-      setExpenses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (err) => console.error("Expenses snapshot error", err));
-
-    const kittyRef = doc(db, 'artifacts', appId, 'public', 'data', 'kitty_state', 'main');
-    const unsubKitty = onSnapshot(kittyRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const data = snapshot.data();
-        setKitty({
-            balances: data.balances || {},
-            history: data.history || []
-        });
-      } else {
-        setKitty({ balances: {}, history: [] });
-      }
-    }, (err) => console.error("Kitty snapshot error", err));
-
-    return () => { unsubMembers(); unsubExpenses(); unsubKitty(); };
-  }, [user]);
-
-  // --- 處理函式 ---
-
-  const handleSaveExpense = async () => {
-    if (!user || !formData.amount || !formData.selectedMembers || formData.selectedMembers.length === 0) return;
-    const amt = parseFloat(formData.amount);
-    const kittyRef = doc(db, 'artifacts', appId, 'public', 'data', 'kitty_state', 'main');
-    const updatedBalances = { ...(kitty.balances || {}) };
-
-    if (editingExpenseId) {
-      const oldExp = expenses.find(e => e.id === editingExpenseId);
-      if (oldExp && oldExp.payerId === 'kitty') {
-        updatedBalances[oldExp.currency] = (updatedBalances[oldExp.currency] || 0) + (oldExp.amount || 0);
-      }
-    }
-
-    if (formData.payerId === 'kitty') {
-      updatedBalances[formData.currency] = (updatedBalances[formData.currency] || 0) - amt;
-    }
-    
-    await setDoc(kittyRef, { ...kitty, balances: updatedBalances }, { merge: true });
-
-    const expenseData = {
-      note: formData.note || '未命名支出',
-      amount: amt,
-      currency: formData.currency,
-      payerId: formData.payerId,
-      splitMemberIds: formData.selectedMembers || [],
-      categoryId: formData.categoryId || 'other',
-      date: formData.date
-    };
-
-    if (editingExpenseId) {
-      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'expenses', editingExpenseId), expenseData);
-    } else {
-      await setDoc(doc(collection(db, 'artifacts', appId, 'public', 'data', 'expenses')), expenseData);
-    }
-    setShowAddModal(false);
-  };
-
-  const toggleMemberSelection = (memberId) => {
-    const current = [...(formData.selectedMembers || [])];
-    if (current.includes(memberId)) {
-      if (current.length > 1) {
-        setFormData({...formData, selectedMembers: current.filter(id => id !== memberId)});
-      }
-    } else {
-      setFormData({...formData, selectedMembers: [...current, memberId]});
-    }
-  };
-
-  const handleDeleteExpense = async () => {
-    if (!user || !editingExpenseId || !window.confirm('確定刪除此筆支出？')) return;
-    const exp = expenses.find(e => e.id === editingExpenseId);
-    if (exp && exp.payerId === 'kitty') {
-      const updatedBalances = { ...(kitty.balances || {}) };
-      updatedBalances[exp.currency] = (updatedBalances[exp.currency] || 0) + (exp.amount || 0);
-      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'kitty_state', 'main'), { balances: updatedBalances }, { merge: true });
-    }
-    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'expenses', editingExpenseId));
-    setShowAddModal(false);
-  };
-
-  const depositKitty = async () => {
-    if (!user) return;
-    const amt = parseFloat(depositData.amount);
-    if (!amt || amt <= 0) return;
-    const newBalances = { ...(kitty.balances || {}) };
-    newBalances[depositData.currency] = (newBalances[depositData.currency] || 0) + amt;
-    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'kitty_state', 'main'), { balances: newBalances }, { merge: true });
-    setDepositData({ ...depositData, amount: '' });
-  };
-
-  const calculateSettlement = () => {
-    let currencyBalances = {};
-    const allCurrenciesInUse = [...new Set(expenses.map(e => e.currency))];
-    allCurrenciesInUse.forEach(cur => {
-      currencyBalances[cur] = {};
-      members.forEach(m => currencyBalances[cur][m.id] = 0);
-    });
-
-    expenses.forEach(exp => {
-      const cur = exp.currency;
-      if (exp.payerId !== 'kitty' && currencyBalances[cur]) {
-        currencyBalances[cur][exp.payerId] += exp.amount;
-        const share = exp.amount / (exp.splitMemberIds?.length || 1);
-        exp.splitMemberIds?.forEach(id => {
-          if (currencyBalances[cur][id] !== undefined) currencyBalances[cur][id] -= share;
-        });
-      }
-    });
-
-    let results = {};
-    for (let cur in currencyBalances) {
-      let bals = currencyBalances[cur];
-      let debtors = [], creditors = [];
-      for (let id in bals) {
-        if (bals[id] < -0.01) debtors.push({ id, amount: Math.abs(bals[id]) });
-        else if (bals[id] > 0.01) creditors.push({ id, amount: bals[id] });
-      }
-      results[cur] = [];
-      let i = 0, j = 0;
-      while (i < debtors.length && j < creditors.length) {
-        let amount = Math.min(debtors[i].amount, creditors[j].amount);
-        results[cur].push({ from: debtors[i].id, to: creditors[j].id, amount });
-        debtors[i].amount -= amount; creditors[j].amount -= amount;
-        if (debtors[i].amount < 0.01) i++; if (creditors[j].amount < 0.01) j++;
-      }
-    }
-    return results;
-  };
-
-  const totalSpentTWD = expenses.reduce((sum, exp) => sum + ((exp.amount || 0) * (rates[exp.currency] || 1)), 0);
-
-  const currentCategoryObj = CATEGORIES.find(c => c.id === formData.categoryId) || CATEGORIES[0];
-
-  return (
-    <div className="max-w-md mx-auto min-h-screen bg-gray-50 flex flex-col font-sans relative">
-      <header className="bg-white p-4 shadow-sm flex justify-between items-center sticky top-0 z-40">
-        <div>
-          <h1 className="text-xl font-bold text-gray-800">TripSplitter</h1>
-          <p className="text-[10px] text-gray-400">ID: {appId}</p>
-        </div>
-        <div onClick={() => setShowKittyModal(true)} className="text-right cursor-pointer hover:opacity-80">
-          <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 rounded-full border border-emerald-100">公積金錢包</span>
-          <div className="text-xs font-black text-emerald-700">
-             {Object.entries(kitty.balances || {}).find(([_,v]) => v > 0.01)?.[1]?.toLocaleString() || 0} {Object.entries(kitty.balances || {}).find(([_,v]) => v > 0.01)?.[0] || 'TWD'}
-          </div>
-        </div>
-      </header>
-
-      <main className="p-4 flex-grow pb-24">
-        {currentTab === 'dashboard' && (
-          <div className="space-y-4">
-            <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 relative overflow-hidden">
-               <Globe className="absolute -right-4 -top-4 text-emerald-50/50" size={120}/>
-               <div className="relative z-10">
-                  <p className="text-gray-400 text-xs font-medium">概估總支出 (TWD)</p>
-                  <h2 className="text-3xl font-black text-gray-800">$ {Math.round(totalSpentTWD).toLocaleString()}</h2>
-                  <div className="mt-4 flex items-center gap-2 text-[10px] text-blue-600 font-bold">
-                    <TrendingUp size={12}/> 匯率已同步: {lastRateUpdate || '預設'}
-                  </div>
-               </div>
-            </div>
-
-            <div className="flex justify-between items-center mt-6">
-              <h3 className="font-bold text-gray-700">支出明細</h3>
-              <button onClick={() => window.location.reload()} className="text-gray-400"><RefreshCw size={16}/></button>
-            </div>
-
-            <div className="space-y-3">
-              {[...expenses].sort((a,b) => b.date.localeCompare(a.date)).map(exp => {
-                const payer = members.find(m => m.id === exp.payerId);
-                const isKitty = exp.payerId === 'kitty';
-                const cat = CATEGORIES.find(c => c.id === exp.categoryId) || CATEGORIES[6];
-                return (
-                  <div key={exp.id} onClick={() => {
-                    setEditingExpenseId(exp.id);
-                    setFormData({ ...exp, selectedMembers: exp.splitMemberIds || [] });
-                    setShowAddModal(true);
-                  }} className="bg-white p-4 rounded-2xl flex justify-between items-center shadow-sm border border-gray-50 active:bg-gray-50 cursor-pointer">
-                    <div className="flex items-center gap-3 overflow-hidden">
-                      <div className="w-10 h-10 bg-gray-50 rounded-full flex-shrink-0 flex items-center justify-center text-xl shadow-inner">{cat.icon}</div>
-                      <div className="overflow-hidden">
-                        <p className="font-bold text-gray-800 text-sm truncate">{exp.note}</p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                           <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded flex items-center gap-1 whitespace-nowrap">
-                             <Clock size={10}/> {exp.date}
-                           </span>
-                           <span className="text-[10px] text-gray-400 truncate">
-                             {isKitty ? '💰公積金' : `${payer?.avatar || '👤'} ${payer?.name || '未知'}`}
-                           </span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-right flex-shrink-0 ml-2">
-                      <p className={`font-bold ${isKitty ? 'text-amber-600' : 'text-emerald-600'} text-sm`}>
-                        {exp.amount?.toLocaleString()} {exp.currency}
-                      </p>
-                      <p className="text-[9px] text-gray-300">≈ NT${Math.round((exp.amount || 0) * (rates[exp.currency] || 1))}</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {currentTab === 'members' && (
-          <div className="space-y-4">
-            <button onClick={() => { setEditingMemberId(null); setMemberFormData({name:'', avatar:'😊'}); setShowMemberModal(true); }} className="w-full bg-white border-2 border-dashed border-gray-200 p-4 rounded-2xl text-gray-400 font-bold flex items-center justify-center gap-2">
-              <Plus size={20}/> 新增成員
-            </button>
-            <div className="grid grid-cols-1 gap-2">
-              {members.map(m => (
-                <div key={m.id} onClick={() => { setEditingMemberId(m.id); setMemberFormData({name: m.name, avatar: m.avatar}); setShowMemberModal(true); }} className="bg-white p-4 rounded-2xl flex items-center justify-between shadow-sm border border-gray-50">
-                  <div className="flex items-center gap-4">
-                    <div className="text-3xl">{m.avatar}</div>
-                    <span className="font-bold text-gray-700">{m.name}</span>
-                  </div>
-                  <ChevronRight className="text-gray-300" />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {currentTab === 'settle' && (
-          <div className="space-y-6">
-            <div className="bg-emerald-600 p-6 rounded-3xl text-white shadow-lg">
-              <h2 className="text-xl font-bold">結算建議</h2>
-              <p className="text-xs opacity-70 mt-1">系統已自動按幣種分類計算</p>
-            </div>
-            {Object.entries(calculateSettlement()).map(([cur, trans]) => (
-              trans.length > 0 && (
-                <div key={cur} className="space-y-2">
-                  <p className="text-xs font-bold text-gray-400 px-2">{cur} 結算區</p>
-                  {trans.map((t, i) => (
-                    <div key={i} className="bg-white p-4 rounded-2xl shadow-sm flex items-center justify-between border border-gray-50">
-                      <div className="flex items-center gap-2">
-                         <span className="font-bold text-gray-700">{members.find(m=>m.id===t.from)?.name}</span>
-                         <span className="text-gray-300 text-xs">應付給</span>
-                         <span className="font-bold text-gray-700">{members.find(m=>m.id===t.to)?.name}</span>
-                      </div>
-                      <span className="text-emerald-600 font-black">{Math.round(t.amount*100)/100} {cur}</span>
-                    </div>
-                  ))}
-                </div>
-              )
-            ))}
-          </div>
-        )}
-      </main>
-
-      <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t flex justify-around py-3 pb-6 z-40">
-        <button onClick={() => setCurrentTab('dashboard')} className={currentTab === 'dashboard' ? 'text-emerald-500' : 'text-gray-400'}><LayoutDashboard size={24}/></button>
-        <button onClick={() => setCurrentTab('members')} className={currentTab === 'members' ? 'text-emerald-500' : 'text-gray-400'}><Users size={24}/></button>
-        <button onClick={() => { 
-          setEditingExpenseId(null); 
-          setFormData({
-            note:'', 
-            amount:'', 
-            currency:'TWD', 
-            payerId: members[0]?.id || '', 
-            selectedMembers: members.map(m=>m.id), 
-            categoryId: 'food',
-            date: new Date().toISOString().split('T')[0]
-          }); 
-          setShowAddModal(true); 
-        }} className="bg-emerald-500 p-3 rounded-full text-white -mt-8 shadow-lg"><Plus size={28}/></button>
-        <button onClick={() => setCurrentTab('settle')} className={currentTab === 'settle' ? 'text-emerald-500' : 'text-gray-400'}><Receipt size={24}/></button>
-      </nav>
-
-      {/* 支出彈窗 */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black/60 z-[60] flex items-end">
-          <div className="bg-white w-full rounded-t-3xl p-6 space-y-5 max-h-[92vh] overflow-y-auto shadow-2xl">
-            <div className="flex justify-between items-center">
-              <h2 className="font-black text-lg text-gray-800">{editingExpenseId ? '修改支出' : '新增支出'}</h2>
-              <button onClick={()=>setShowAddModal(false)} className="text-gray-300 p-1"><X/></button>
-            </div>
+        // 圖示組件（處理 Lucide 在瀏覽器環境的載入）
+        const Icon = ({ name, size = 24, className = "" }) => {
+            const [iconElement, setIconElement] = useState(null);
             
-            <div className="flex gap-2 bg-gray-50 p-4 rounded-2xl border border-gray-100">
-              <select className="bg-white p-2 rounded-xl text-xs font-bold border shadow-sm" value={formData.currency} onChange={e=>setFormData({...formData, currency: e.target.value})}>
-                {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.flag} {c.code}</option>)}
-              </select>
-              <input type="number" placeholder="0" className="w-full bg-transparent text-right font-black text-3xl outline-none text-gray-800" value={formData.amount} onChange={e=>setFormData({...formData, amount: e.target.value})} />
-            </div>
+            useEffect(() => {
+                if (window.lucide && window.lucide.icons) {
+                    const iconName = name.charAt(0).toUpperCase() + name.slice(1);
+                    const LucideIcon = window.lucide.icons[iconName] || window.lucide.icons.HelpCircle;
+                    // 建立簡單的 SVG 包裝
+                    setIconElement(LucideIcon);
+                }
+            }, [name]);
 
-            <div className="space-y-1">
-               <p className="text-[10px] font-bold text-gray-400 ml-1 uppercase">主類別</p>
-               <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-                 {CATEGORIES.map(cat => (
-                   <button 
-                    key={cat.id} 
-                    onClick={() => setFormData({...formData, categoryId: cat.id})}
-                    className={`flex flex-col items-center gap-1 p-3 rounded-2xl border-2 transition-all flex-shrink-0 w-16 ${formData.categoryId === cat.id ? 'border-emerald-500 bg-emerald-50 shadow-sm' : 'border-gray-100 bg-white'}`}
-                   >
-                     <span className="text-xl">{cat.icon}</span>
-                     <span className="text-[10px] font-bold">{cat.label}</span>
-                   </button>
-                 ))}
-               </div>
-            </div>
+            if (!iconElement) return <div style={{width: size, height: size}} className={className}></div>;
+            
+            // 使用 React.createElement 手動渲染以確保兼容性
+            return React.createElement('i', {
+                "data-lucide": name.toLowerCase(),
+                className: className,
+                style: { width: size, height: size, display: 'inline-block' },
+                dangerouslySetInnerHTML: { __html: window.lucide.createIcons() } // 簡易觸發方式
+            });
+        };
 
-            <div className="space-y-1">
-               <p className="text-[10px] font-bold text-gray-400 ml-1 uppercase flex items-center gap-1"><Tag size={10}/> 建議細項</p>
-               <div className="flex flex-wrap gap-2">
-                 {currentCategoryObj.subs.map(sub => (
-                   <button 
-                    key={sub} 
-                    onClick={() => setFormData({...formData, note: sub})}
-                    className={`px-3 py-1.5 rounded-full text-[11px] font-bold border transition-all ${formData.note === sub ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm' : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-emerald-300'}`}
-                   >
-                     {sub}
-                   </button>
-                 ))}
-               </div>
-            </div>
+        // 靜態資料
+        const CURRENCIES = [
+            { code: 'TWD', symbol: 'NT$', label: '台幣', flag: '🇹🇼' },
+            { code: 'JPY', symbol: '¥', label: '日圓', flag: '🇯🇵' },
+            { code: 'USD', symbol: '$', label: '美金', flag: '🇺🇸' }
+        ];
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                 <p className="text-[10px] font-bold text-gray-400 ml-1 uppercase">項目名稱</p>
-                 <input type="text" placeholder="輸入名稱..." className="w-full bg-gray-50 p-3 rounded-xl font-bold border outline-none focus:border-emerald-200" value={formData.note} onChange={e=>setFormData({...formData, note: e.target.value})} />
-              </div>
-              <div className="space-y-1">
-                 <p className="text-[10px] font-bold text-gray-400 ml-1 uppercase">日期</p>
-                 <input type="date" className="w-full bg-gray-50 p-3 rounded-xl font-bold border outline-none focus:border-emerald-200" value={formData.date} onChange={e=>setFormData({...formData, date: e.target.value})} />
-              </div>
-            </div>
+        function App() {
+            const [currentTab, setCurrentTab] = useState('dashboard');
+            const [expenses, setExpenses] = useState([
+                { id: 1, note: '機場接送', amount: 1200, currency: 'TWD', date: '2024-03-19', categoryId: 'transport', payerId: 'user1' }
+            ]);
+            const [members, setMembers] = useState([
+                { id: 'user1', name: '小明', avatar: '😎' },
+                { id: 'user2', name: '小華', avatar: '🐱' }
+            ]);
 
-            <div className="space-y-1">
-               <p className="text-[10px] font-bold text-gray-400 ml-1 uppercase">是誰買單？</p>
-               <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-                  <button onClick={()=>setFormData({...formData, payerId:'kitty'})} className={`px-4 py-3 rounded-2xl border-2 transition-all flex-shrink-0 flex items-center gap-2 ${formData.payerId === 'kitty' ? 'border-amber-500 bg-amber-50 text-amber-700 font-bold' : 'border-gray-100 bg-white'}`}>💰 公積金</button>
-                  {members.map(m => (
-                    <button key={m.id} onClick={()=>setFormData({...formData, payerId: m.id})} className={`px-4 py-3 rounded-2xl border-2 transition-all flex-shrink-0 flex items-center gap-2 ${formData.payerId === m.id ? 'border-emerald-500 bg-emerald-50 text-emerald-700 font-bold' : 'border-gray-100 bg-white'}`}>{m.avatar} {m.name}</button>
-                  ))}
-               </div>
-            </div>
+            const totalSpentTWD = expenses.reduce((sum, exp) => sum + exp.amount, 0);
 
-            <div className="space-y-2">
-               <p className="text-[10px] font-bold text-gray-400 ml-1 uppercase">分攤名單</p>
-               <div className="grid grid-cols-2 gap-2">
-                 {members.map(m => {
-                   const isSelected = formData.selectedMembers?.includes(m.id);
-                   return (
-                     <button 
-                      key={m.id} 
-                      onClick={() => toggleMemberSelection(m.id)}
-                      className={`flex items-center gap-2 p-3 rounded-xl border-2 transition-all ${isSelected ? 'border-emerald-500 bg-emerald-50 text-emerald-800 font-bold' : 'border-gray-100 bg-white text-gray-400'}`}
-                     >
-                       <div className={`w-5 h-5 rounded-full flex items-center justify-center border ${isSelected ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-gray-200 bg-white'}`}>
-                          {isSelected && <Check size={12} strokeWidth={4}/>}
-                       </div>
-                       <span className="truncate">{m.avatar} {m.name}</span>
-                     </button>
-                   );
-                 })}
-               </div>
-            </div>
+            return (
+                <div className="max-w-md mx-auto min-h-screen bg-white shadow-xl flex flex-col">
+                    {/* Header */}
+                    <header className="p-4 border-b flex justify-between items-center bg-white sticky top-0 z-10">
+                        <div>
+                            <h1 className="text-xl font-black text-emerald-600">TripSplitter</h1>
+                            <p className="text-[10px] text-gray-400">Beta 1.0 (Live on GitHub)</p>
+                        </div>
+                    </header>
 
-            <div className="flex gap-3 pt-4 pb-4">
-              {editingExpenseId && (
-                <button onClick={handleDeleteExpense} className="p-4 bg-red-50 text-red-500 rounded-2xl border border-red-100">
-                  <Trash2 size={24}/>
-                </button>
-              )}
-              <button onClick={handleSaveExpense} className="flex-grow bg-emerald-500 text-white py-4 rounded-2xl font-bold shadow-lg shadow-emerald-200 active:scale-[0.98] transition-all">
-                {editingExpenseId ? '更新支出' : '確認新增支出'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+                    {/* Main Content */}
+                    <main className="p-4 flex-grow overflow-y-auto">
+                        {currentTab === 'dashboard' && (
+                            <div className="space-y-6">
+                                <div className="bg-emerald-500 p-6 rounded-3xl text-white shadow-lg">
+                                    <p className="opacity-80 text-xs">總支出 (TWD)</p>
+                                    <h2 className="text-3xl font-black mt-1">$ {totalSpentTWD.toLocaleString()}</h2>
+                                </div>
 
-      {/* 公積金彈窗 */}
-      {showKittyModal && (
-        <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-6">
-          <div className="bg-white w-full max-w-sm rounded-3xl p-6 space-y-4 relative shadow-2xl">
-             <button onClick={()=>setShowKittyModal(false)} className="absolute right-4 top-4 text-gray-300 p-1"><X/></button>
-             <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center text-amber-600">💰</div>
-                <h2 className="font-black text-gray-800">公積金餘額</h2>
-             </div>
-             <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                {Object.entries(kitty.balances || {}).filter(([_,v]) => Math.abs(v) > 0.01).map(([c, v]) => (
-                  <div key={c} className="flex justify-between items-center bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                    <span className="font-bold text-gray-500">{c}</span>
-                    <span className={`font-black ${v > 0 ? 'text-emerald-600' : 'text-red-500'} text-lg`}>{v?.toLocaleString()}</span>
-                  </div>
-                ))}
-                {(!kitty.balances || Object.values(kitty.balances).every(v => Math.abs(v) < 0.01)) && (
-                  <p className="text-center py-4 text-gray-400 text-sm">目前錢包是空的</p>
-                )}
-             </div>
-             <div className="pt-4 border-t flex flex-col gap-3">
-                <p className="text-[10px] font-bold text-gray-400">存入現金</p>
-                <div className="flex gap-2">
-                  <select className="bg-gray-100 p-2 rounded-xl text-xs font-bold border" value={depositData.currency} onChange={e=>setDepositData({...depositData, currency: e.target.value})}>
-                     {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.flag} {c.code}</option>)}
-                  </select>
-                  <input type="number" placeholder="金額" className="flex-grow bg-gray-50 p-2 rounded-xl border outline-none" value={depositData.amount} onChange={e=>setDepositData({...depositData, amount: e.target.value})} />
-                  <button onClick={depositKitty} className="bg-emerald-500 text-white px-5 rounded-xl font-bold active:scale-95 transition-all">存</button>
+                                <div className="space-y-3">
+                                    <h3 className="font-bold text-gray-700">最近支出</h3>
+                                    {expenses.map(exp => (
+                                        <div key={exp.id} className="p-4 bg-gray-50 rounded-2xl flex justify-between items-center border border-gray-100">
+                                            <div>
+                                                <p className="font-bold text-gray-800">{exp.note}</p>
+                                                <p className="text-xs text-gray-400">{exp.date}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="font-bold text-emerald-600">{exp.amount} {exp.currency}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                        
+                        {currentTab === 'members' && (
+                            <div className="space-y-4">
+                                <h3 className="font-bold text-gray-700">旅行夥伴</h3>
+                                {members.map(m => (
+                                    <div key={m.id} className="p-4 bg-white border rounded-2xl flex items-center gap-4">
+                                        <span className="text-2xl">{m.avatar}</span>
+                                        <span className="font-bold">{m.name}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </main>
+
+                    {/* Navigation */}
+                    <nav className="border-t p-4 flex justify-around bg-white">
+                        <button onClick={() => setCurrentTab('dashboard')} className={`p-2 ${currentTab === 'dashboard' ? 'text-emerald-500' : 'text-gray-300'}`}>首頁</button>
+                        <button onClick={() => setCurrentTab('members')} className={`p-2 ${currentTab === 'members' ? 'text-emerald-500' : 'text-gray-300'}`}>成員</button>
+                        <button className="bg-emerald-500 text-white w-12 h-12 rounded-full flex items-center justify-center -mt-10 shadow-lg">+</button>
+                        <button onClick={() => setCurrentTab('settle')} className={`p-2 ${currentTab === 'settle' ? 'text-emerald-500' : 'text-gray-300'}`}>結算</button>
+                    </nav>
                 </div>
-             </div>
-          </div>
-        </div>
-      )}
+            );
+        }
 
-      {/* 成員彈窗 */}
-      {showMemberModal && (
-        <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-6">
-          <div className="bg-white w-full max-w-sm rounded-3xl p-6 space-y-4 shadow-2xl">
-            <h2 className="font-black text-gray-800">成員管理</h2>
-            <div className="flex gap-4">
-               <div className="flex flex-col items-center gap-1">
-                  <p className="text-[10px] font-bold text-gray-400">頭像</p>
-                  <input type="text" placeholder="😊" className="w-16 h-16 bg-gray-50 p-3 rounded-2xl text-center text-3xl border shadow-inner" value={memberFormData.avatar} onChange={e=>setMemberFormData({...memberFormData, avatar: e.target.value})} />
-               </div>
-               <div className="flex-grow flex flex-col gap-1">
-                  <p className="text-[10px] font-bold text-gray-400">成員名稱</p>
-                  <input type="text" placeholder="怎麼稱呼？" className="w-full bg-gray-50 h-16 px-4 rounded-2xl font-bold border outline-none focus:border-emerald-300" value={memberFormData.name} onChange={e=>setMemberFormData({...memberFormData, name: e.target.value})} />
-               </div>
-            </div>
-            <div className="flex gap-2 pt-2">
-              {editingMemberId && (
-                <button 
-                  onClick={() => { if(window.confirm('確定刪除此成員？')) { deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'members', editingMemberId)); setShowMemberModal(false); } }} 
-                  className="p-3 bg-red-50 text-red-500 rounded-xl border border-red-100"
-                >
-                  <Trash2 size={24}/>
-                </button>
-              )}
-              <button onClick={async () => {
-                if(!user || !memberFormData.name) return;
-                if(editingMemberId) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'members', editingMemberId), memberFormData);
-                else await setDoc(doc(collection(db, 'artifacts', appId, 'public', 'data', 'members')), memberFormData);
-                setShowMemberModal(false);
-              }} className="flex-grow bg-emerald-500 text-white py-4 rounded-xl font-bold shadow-lg shadow-emerald-100">
-                儲存成員資訊
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+        // 渲染應用程式
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
