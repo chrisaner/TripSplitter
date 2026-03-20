@@ -313,7 +313,8 @@
       expenses: [],
       categories: {
         food: { icon: '🍱', label: '餐飲', subs: ['早餐', '午餐', '晚餐', '飲品', '宵夜'] },
-        trans: { icon: '🚕', label: '交通', subs: ['地鐵', '打車', '機票', '租車'] },
+        trans: { icon: '🚕', label: '交通', subs: ['捷運', '公車', '火車', '高鐵', '計程車', '機票', '租車', '加油', '停車'] },
+        housing: { icon: '🏨', label: '住',subs: ['飯店', '民宿', '住宿稅', '清潔費', '寄物', '備品'] },
         play: { icon: '🎡', label: '景點', subs: ['門票', '按摩', '體驗'] },
         other: { icon: '🛒', label: '購物', subs: ['伴手禮', '衣服', '藥妝'] }
       },
@@ -724,7 +725,7 @@
     function renderMainCats() {
       const container = document.getElementById('main-cats');
       container.innerHTML = Object.entries(state.categories).map(([key, data]) => `
-        <button onclick="selectCat('${key}')" class="category-btn flex-shrink-0 w-20 h-20 bg-gray-50 rounded-[1.5rem] flex flex-col items-center justify-center transition-all ${state.currentCat === key ? 'active' : ''}">
+        <button onclick="selectCat('${key}')" class="category-btn flex-shrink-0 w-16 h-16 bg-gray-50 rounded-[1.5rem] flex flex-col items-center justify-center transition-all ${state.currentCat === key ? 'active' : ''}">
           <span class="text-2xl">${data.icon}</span>
           <span class="text-[9px] font-black mt-1">${data.label}</span>
         </button>
@@ -734,6 +735,7 @@
 
     function selectCat(key) {
       state.currentCat = key;
+      localStorage.setItem("lastCategory", key);
       const keys = Object.keys(state.categories);
       document.querySelectorAll('.category-btn').forEach((btn, i) => {
         btn.classList.toggle('active', keys[i] === key);
@@ -746,8 +748,15 @@
 
     function selectSub(s) {
       state.currentSub = s;
-      document.querySelectorAll('.sub-btn').forEach(btn => btn.classList.toggle('active', btn.innerText === s));
-      if (!state.editingId) document.getElementById('exp-title').value = s;
+      localStorage.setItem("lastSub", s);
+      document.querySelectorAll('.sub-btn')
+        .forEach(btn => btn.classList.toggle('active', btn.innerText === s));
+
+      const titleInput = document.getElementById('exp-title');
+
+      if (!state.editingId && !titleInput.value) {
+        titleInput.value = s;
+      }
     }
 
     function renderExpenseSummary() {
@@ -980,6 +989,8 @@
         delBtn.classList.remove('hidden');
       } else {
         document.getElementById('exp-modal-title').innerText = "新增支出";
+        state.currentCat = localStorage.getItem("lastCategory") || 'food';
+        state.currentSub = localStorage.getItem("lastSub") || '午餐';
         document.getElementById('exp-amount').value = '';
         document.getElementById('exp-time').value = new Date().toISOString().slice(0, 16);
         document.getElementById('exp-title').value = state.currentSub;
