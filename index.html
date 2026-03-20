@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TripSplitter Beta 1.8</title>
+    <title>TripSplitter Beta 1.9.2</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -11,7 +11,8 @@
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body { font-family: 'Noto Sans TC', sans-serif; background-color: #f8f9fa; }
         .modal-blur { backdrop-filter: blur(8px); background-color: rgba(0, 0, 0, 0.4); }
-        .custom-input {
+        
+        .custom-input, .custom-select {
             background-color: #f4f7f9;
             border: 2px solid transparent;
             border-radius: 1rem;
@@ -19,28 +20,25 @@
             font-weight: 700;
             outline: none;
             width: 100%;
-            transition: border-color 0.2s;
+            transition: all 0.2s;
+            appearance: none;
         }
-        .custom-input:focus { border-color: #6366f1; }
+        .custom-select {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236366f1'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 1rem center;
+            background-size: 1.2em;
+            padding-right: 2.5rem;
+        }
+        .custom-input:focus, .custom-select:focus { border-color: #6366f1; background-color: white; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1); }
+        
         .nav-btn.active { color: #4f46e5; }
         .member-chip.selected { background-color: #4f46e5; color: white; border-color: #4f46e5; }
-        .currency-select {
-            background-color: #f4f7f9;
-            border-radius: 1rem;
-            padding: 0 8px;
-            font-weight: 800;
-            font-size: 13px;
-            border: 2px solid #f1f5f9;
-            height: 100%;
-            min-width: 100px;
-        }
         .page-content { display: none; flex: 1; padding-bottom: 120px; }
         .page-content.active { display: flex; flex-direction: column; }
-        .quick-tag {
-            transition: all 0.2s;
-            border: 1px solid #e2e8f0;
-        }
+        .quick-tag { border: 1px solid #e2e8f0; }
         .quick-tag:active { transform: scale(0.95); background-color: #e0e7ff; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
     </style>
 </head>
 <body class="text-slate-800">
@@ -63,7 +61,7 @@
 
         <!-- Home Page -->
         <main id="pageHome" class="page-content active px-6 pt-6">
-            <div class="bg-indigo-900 rounded-[2.5rem] p-7 text-white mb-8 shadow-xl relative overflow-hidden">
+            <div class="bg-indigo-900 rounded-[2.5rem] p-7 text-white mb-6 shadow-xl relative overflow-hidden">
                 <div class="relative z-10">
                     <p class="text-indigo-200 text-[10px] font-bold mb-1 uppercase tracking-widest">行程總支出 (TWD)</p>
                     <div id="totalDisplay" class="text-4xl font-black mb-4">$ 0</div>
@@ -74,6 +72,24 @@
                     </div>
                 </div>
                 <div class="absolute -right-10 -bottom-10 w-40 h-40 bg-white/5 rounded-full"></div>
+            </div>
+
+            <!-- Home Dropdown Filters -->
+            <div class="grid grid-cols-2 gap-3 mb-6">
+                <div>
+                    <label class="text-[10px] font-black text-slate-400 ml-2 mb-1 block uppercase tracking-widest">日期篩選</label>
+                    <select id="homeDateSelect" onchange="setHomeFilter('date', this.value)" class="custom-select text-xs py-2 h-11">
+                        <option value="all">全部日期</option>
+                        <option value="today">今天</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-[10px] font-black text-slate-400 ml-2 mb-1 block uppercase tracking-widest">付款對象</label>
+                    <select id="homePayerSelect" onchange="setHomeFilter('payer', this.value)" class="custom-select text-xs py-2 h-11">
+                        <option value="all">所有付款</option>
+                        <option value="pool">公積金</option>
+                    </select>
+                </div>
             </div>
 
             <section>
@@ -96,14 +112,23 @@
                     <button onclick="toggleEmojiPicker('newMemberEmoji')" id="newMemberAvatarBtn" class="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-2xl border border-slate-100">😎</button>
                     <input type="text" id="newMemberName" placeholder="姓名" class="flex-1 custom-input h-14 bg-white">
                 </div>
-                <div id="newMemberEmojiPicker" class="hidden grid grid-cols-6 gap-2 mb-4 p-3 bg-white rounded-2xl border border-slate-100"></div>
-                <button onclick="addNewMember()" class="w-full py-3 bg-indigo-600 text-white rounded-2xl font-black">加入成員</button>
+                <div id="newMemberEmojiPicker" class="hidden grid grid-cols-6 gap-2 mb-4 p-3 bg-white rounded-2xl border border-slate-100 shadow-inner"></div>
+                <button onclick="addNewMember()" class="w-full py-3 bg-indigo-600 text-white rounded-2xl font-black shadow-md active:bg-indigo-700">加入成員</button>
             </div>
         </main>
 
         <!-- Settle Page -->
         <main id="pageSettle" class="page-content px-6 pt-6 bg-slate-50">
-            <h2 class="font-black text-2xl mb-2 text-indigo-900">結算對帳</h2>
+            <h2 class="font-black text-2xl mb-2 text-indigo-900 text-center">結算對帳</h2>
+            
+            <!-- Settle Member Filter Dropdown -->
+            <div class="mb-6 max-w-[200px] mx-auto text-center">
+                <label class="text-[10px] font-black text-slate-400 mb-1 block uppercase tracking-widest">查看成員對帳</label>
+                <select id="settleMemberSelect" onchange="setSettleFilter(this.value)" class="custom-select text-xs py-2 h-11 text-center bg-white shadow-sm">
+                    <option value="all">顯示全部</option>
+                </select>
+            </div>
+
             <div id="settleContent" class="space-y-6"></div>
         </main>
 
@@ -128,7 +153,7 @@
             </button>
         </nav>
 
-        <!-- Modals Overlay -->
+        <!-- Modals -->
         <div id="modalOverlay" class="fixed inset-0 modal-blur z-[100] hidden items-center justify-center p-4">
             
             <!-- Expense Modal -->
@@ -138,21 +163,18 @@
                     <button onclick="closeModals()" class="text-slate-300"><i class="fas fa-times-circle text-2xl"></i></button>
                 </div>
                 
-                <!-- Category Select -->
                 <div class="flex justify-between mb-4 gap-2" id="catRow"></div>
-
-                <!-- Quick Tags -->
                 <div id="quickTags" class="flex flex-wrap gap-2 mb-4"></div>
 
                 <div class="flex gap-2 mb-3 h-14">
-                    <select id="expCur" class="currency-select shadow-sm"></select>
+                    <select id="expCur" class="bg-slate-50 rounded-xl px-2 font-black text-xs border-2 border-slate-100"></select>
                     <input type="number" id="expAmt" placeholder="金額" class="flex-1 custom-input h-full">
                 </div>
                 <input type="text" id="expNote" placeholder="支出項目 (例: 午餐)" class="custom-input mb-4 h-14">
                 
                 <div class="mb-4">
                     <p class="text-[10px] font-black text-slate-300 mb-2 uppercase tracking-widest">付款方式</p>
-                    <select id="expPayer" class="custom-input h-14 text-indigo-600 font-bold bg-indigo-50/50"></select>
+                    <select id="expPayer" class="custom-select h-14 text-indigo-600 font-bold bg-indigo-50/50"></select>
                 </div>
                 
                 <div class="mb-8">
@@ -172,20 +194,17 @@
                     <h3 class="text-xl font-black text-orange-900">公積金錢包</h3>
                     <button onclick="closeModals()" class="text-slate-300"><i class="fas fa-times-circle text-2xl"></i></button>
                 </div>
-                <div class="bg-gradient-to-br from-orange-400 to-orange-600 rounded-3xl p-6 text-white mb-6 shadow-lg shadow-orange-100">
+                <div class="bg-gradient-to-br from-orange-400 to-orange-600 rounded-3xl p-6 text-white mb-6 shadow-lg shadow-orange-200">
                     <p class="text-[10px] font-bold text-orange-100 mb-1 uppercase tracking-widest">目前總值估計</p>
                     <div class="text-3xl font-black" id="modalPoolVal">0 TWD</div>
                     <div id="poolCurDetails" class="mt-2 text-[10px] text-orange-50/60 font-medium"></div>
                 </div>
-                <p class="text-[10px] font-black text-slate-300 mb-2 uppercase tracking-widest">存入公積金</p>
                 <div class="flex gap-2 h-14 mb-4">
-                    <select id="poolCur" class="currency-select border-orange-100 shadow-sm"></select>
-                    <input type="number" id="poolAmt" placeholder="金額" class="flex-1 custom-input h-full">
+                    <select id="poolCur" class="bg-slate-50 rounded-xl px-2 font-black text-xs border-2 border-orange-50"></select>
+                    <input type="number" id="poolAmt" placeholder="存入金額" class="flex-1 custom-input h-full">
                 </div>
-                <button onclick="addPoolMoney()" class="w-full py-4 bg-orange-500 text-white rounded-[1.25rem] font-black active:scale-95 mb-6">確認存入</button>
-                
-                <p class="text-[10px] font-black text-slate-300 mb-3 uppercase tracking-widest">存入歷史</p>
-                <div id="poolHistory" class="space-y-2 max-h-40 overflow-y-auto pr-1"></div>
+                <button onclick="addPoolMoney()" class="w-full py-4 bg-orange-500 text-white rounded-[1.25rem] font-black mb-6 active:bg-orange-600">確認存入</button>
+                <div id="poolHistory" class="space-y-2 max-h-40 overflow-y-auto"></div>
             </div>
 
             <!-- Member Edit Modal -->
@@ -197,7 +216,7 @@
                 <div class="flex justify-center mb-6">
                     <button onclick="toggleEmojiPicker('editMemberEmoji')" id="editMemberAvatarBtn" class="w-20 h-20 bg-indigo-50 rounded-3xl flex items-center justify-center text-4xl">😎</button>
                 </div>
-                <div id="editMemberEmojiPicker" class="hidden grid grid-cols-6 gap-2 mb-6 p-3 bg-slate-50 rounded-2xl border border-slate-100"></div>
+                <div id="editMemberEmojiPicker" class="hidden grid grid-cols-6 gap-2 mb-6 p-3 bg-slate-50 rounded-2xl border border-slate-100 shadow-inner"></div>
                 <input type="text" id="editMemberName" class="custom-input mb-8 h-14 text-center text-xl" placeholder="輸入名稱">
                 <div class="flex gap-3">
                     <button onclick="deleteMember()" class="flex-1 py-4 bg-red-50 text-red-500 rounded-[1.25rem] font-black">刪除</button>
@@ -210,17 +229,12 @@
     <script>
         const emojis = ['😎','✨','🦊','🦁','🐱','🐻','🐹','🐼','🐨','🦄','🐲','🐸','🐧','🐙','🦋','🥑','🍕','⭐'];
         const currencyList = [
-            { code: 'TWD', flag: '🇹🇼', label: '台幣' },
-            { code: 'USD', flag: '🇺🇸', label: '美元' },
-            { code: 'EUR', flag: '🇪🇺', label: '歐元' },
-            { code: 'JPY', flag: '🇯🇵', label: '日圓' },
-            { code: 'KRW', flag: '🇰🇷', label: '韓元' },
-            { code: 'THB', flag: '🇹🇭', label: '泰銖' },
-            { code: 'CNY', flag: '🇨🇳', label: '人民幣' }
+            { code: 'TWD', flag: '🇹🇼' }, { code: 'USD', flag: '🇺🇸' }, { code: 'EUR', flag: '🇪🇺' },
+            { code: 'JPY', flag: '🇯🇵' }, { code: 'KRW', flag: '🇰🇷' }, { code: 'THB', flag: '🇹🇭' }
         ];
 
         let state = {
-            poolBalances: { "TWD": 0, "USD": 0, "EUR": 0, "JPY": 0, "KRW": 0, "THB": 0, "CNY": 0 },
+            poolBalances: { "TWD": 0, "USD": 0, "EUR": 0, "JPY": 0, "KRW": 0, "THB": 0 },
             poolLogs: [],
             members: [
                 { id: 'm1', name: '小明', avatar: '😎' },
@@ -228,34 +242,194 @@
                 { id: 'm3', name: '阿強', avatar: '🦊' }
             ],
             expenses: [],
-            selectedCat: 'food',
-            rates: { "TWD": 1, "USD": 32.5, "EUR": 35.2, "JPY": 0.21, "KRW": 0.024, "THB": 0.92, "CNY": 4.5 },
+            rates: { "TWD": 1, "USD": 32.5, "EUR": 35.2, "JPY": 0.21, "KRW": 0.024, "THB": 0.92 },
             cats: [
-                { id: 'food', icon: '🍱', label: '餐飲', tags: ['早餐', '午餐', '晚餐', '咖啡', '消夜', '超商'] },
-                { id: 'stay', icon: '🏨', label: '住宿', tags: ['飯店', '民宿', '青旅', '訂房訂金'] },
-                { id: 'move', icon: '🚌', label: '交通', tags: ['車票', '計程車', '加油', '租車', '機票', '地鐵'] },
-                { id: 'shop', icon: '🛍️', label: '購物', tags: ['紀念品', '衣服', '藥妝', '免稅店'] }
+                { id: 'food', icon: '🍱', label: '餐飲', tags: ['早餐', '午餐', '晚餐', '咖啡', '消夜'] },
+                { id: 'stay', icon: '🏨', label: '住宿', tags: ['飯店', '民宿', '青旅'] },
+                { id: 'move', icon: '🚌', label: '交通', tags: ['計程車', '加油', '車票', '租車'] },
+                { id: 'shop', icon: '🛍️', label: '購物', tags: ['紀念品', '藥妝', '衣服'] }
             ],
+            selectedCat: 'food',
             editingExpenseId: null,
             editingMemberId: null,
-            tempAvatar: '😎'
+            tempAvatar: '😎',
+            homeFilters: { date: 'all', payer: 'all' },
+            settleFilterMember: 'all'
         };
 
+        // --- Core UI Functions ---
         function switchTab(tabName) {
             document.querySelectorAll('.page-content').forEach(p => p.classList.remove('active'));
             document.getElementById('page' + tabName).classList.add('active');
-            document.querySelectorAll('.nav-btn').forEach(b => {
-                b.classList.remove('active');
-                b.classList.replace('text-indigo-600', 'text-slate-300');
-            });
-            const activeBtn = document.getElementById('btn' + tabName);
-            activeBtn.classList.add('active');
-            activeBtn.classList.replace('text-slate-300', 'text-indigo-600');
-
-            if(tabName === 'Settle') updateSettlement();
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn' + tabName).classList.add('active');
+            
+            if(tabName === 'Settle') { 
+                updateSettleFilterDropdown();
+                updateSettlement(); 
+            }
             if(tabName === 'Members') updateMemberPage();
+            if(tabName === 'Home') updateHomeFilterDropdowns();
         }
 
+        // --- Member Logic ---
+        function toggleEmojiPicker(type) {
+            const picker = document.getElementById(type + 'Picker');
+            picker.classList.toggle('hidden');
+            if (!picker.classList.contains('hidden')) {
+                picker.innerHTML = emojis.map(e => `
+                    <button onclick="selectEmoji('${type}', '${e}')" class="w-10 h-10 flex items-center justify-center text-xl hover:bg-slate-50 rounded-lg transition-colors">${e}</button>
+                `).join('');
+            }
+        }
+
+        function selectEmoji(type, emoji) {
+            state.tempAvatar = emoji;
+            const btn = document.getElementById(type.includes('new') ? 'newMemberAvatarBtn' : 'editMemberAvatarBtn');
+            btn.innerText = emoji;
+            document.getElementById(type + 'Picker').classList.add('hidden');
+        }
+
+        function addNewMember() {
+            const nameInput = document.getElementById('newMemberName');
+            const name = nameInput.value.trim();
+            if (!name) return;
+            const newMember = {
+                id: 'm' + Date.now(),
+                name: name,
+                avatar: state.tempAvatar
+            };
+            state.members.push(newMember);
+            nameInput.value = '';
+            state.tempAvatar = '😎';
+            document.getElementById('newMemberAvatarBtn').innerText = '😎';
+            updateMemberPage();
+            updateHomeFilterDropdowns();
+        }
+
+        function openMemberEdit(mid) {
+            state.editingMemberId = mid;
+            const m = state.members.find(m => m.id === mid);
+            state.tempAvatar = m.avatar;
+            document.getElementById('editMemberName').value = m.name;
+            document.getElementById('editMemberAvatarBtn').innerText = m.avatar;
+            openModal('memberEditModal');
+        }
+
+        function saveMemberEdit() {
+            const idx = state.members.findIndex(m => m.id === state.editingMemberId);
+            state.members[idx].name = document.getElementById('editMemberName').value.trim();
+            state.members[idx].avatar = state.tempAvatar;
+            updateMemberPage();
+            updateHomeFilterDropdowns();
+            closeModals();
+        }
+
+        function deleteMember() {
+            state.members = state.members.filter(m => m.id !== state.editingMemberId);
+            updateMemberPage();
+            updateHomeFilterDropdowns();
+            closeModals();
+        }
+
+        function updateMemberPage() {
+            document.getElementById('memberListContainer').innerHTML = state.members.map(m => `
+                <div onclick="openMemberEdit('${m.id}')" class="bg-white p-5 rounded-[1.5rem] border border-slate-100 flex items-center justify-between shadow-sm active:scale-95 transition-transform">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-2xl">${m.avatar}</div>
+                        <div><span class="font-black text-slate-700 block">${m.name}</span><span class="text-[9px] text-slate-300 font-bold uppercase tracking-wide">點擊修改資料</span></div>
+                    </div>
+                    <i class="fas fa-chevron-right text-slate-200 text-xs"></i>
+                </div>
+            `).join('');
+        }
+
+        // --- Filter Logic ---
+        function setHomeFilter(type, val) {
+            state.homeFilters[type] = val;
+            updateUI();
+        }
+
+        function updateHomeFilterDropdowns() {
+            // Update Date Select
+            const dateSelect = document.getElementById('homeDateSelect');
+            const dates = [...new Set(state.expenses.map(e => e.date))].sort().reverse();
+            let dateHtml = '<option value="all">全部日期</option><option value="today">今天</option>';
+            dates.forEach(d => {
+                if(d !== new Date().toISOString().split('T')[0]) {
+                    dateHtml += `<option value="${d}">${d}</option>`;
+                }
+            });
+            dateSelect.innerHTML = dateHtml;
+            dateSelect.value = state.homeFilters.date;
+
+            // Update Payer Select
+            const payerSelect = document.getElementById('homePayerSelect');
+            let payerHtml = '<option value="all">所有付款者</option><option value="pool">💰 公積金</option>';
+            state.members.forEach(m => {
+                payerHtml += `<option value="${m.id}">${m.avatar} ${m.name}</option>`;
+            });
+            payerSelect.innerHTML = payerHtml;
+            payerSelect.value = state.homeFilters.payer;
+        }
+
+        function setSettleFilter(mid) {
+            state.settleFilterMember = mid;
+            updateSettlement();
+        }
+
+        function updateSettleFilterDropdown() {
+            const select = document.getElementById('settleMemberSelect');
+            let html = '<option value="all">顯示全部</option>';
+            state.members.forEach(m => {
+                html += `<option value="${m.id}">${m.avatar} ${m.name}</option>`;
+            });
+            select.innerHTML = html;
+            select.value = state.settleFilterMember;
+        }
+
+        // --- Pool Logic ---
+        function initPoolModal() {
+            document.getElementById('poolCur').value = 'TWD';
+            updatePoolHistory();
+        }
+
+        function addPoolMoney() {
+            const amtInput = document.getElementById('poolAmt');
+            const amt = parseFloat(amtInput.value) || 0;
+            const cur = document.getElementById('poolCur').value;
+            if (amt <= 0) return;
+            state.poolBalances[cur] += amt;
+            state.poolLogs.unshift({
+                id: Date.now(),
+                type: 'deposit',
+                amt: amt,
+                cur: cur,
+                date: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            });
+            amtInput.value = '';
+            updateUI();
+            updatePoolHistory();
+        }
+
+        function updatePoolHistory() {
+            const hist = document.getElementById('poolHistory');
+            hist.innerHTML = state.poolLogs.length === 0 ? '<div class="text-center py-4 text-xs text-slate-300">尚無存入紀錄</div>' :
+            state.poolLogs.map(l => `
+                <div class="flex justify-between items-center p-3 bg-slate-50 rounded-xl text-xs font-bold border border-slate-100">
+                    <span class="text-orange-600 font-black">+ ${l.amt.toLocaleString()} ${l.cur}</span>
+                    <span class="text-slate-300 text-[10px] font-black">${l.date}</span>
+                </div>
+            `).join('');
+            
+            let details = [];
+            for(let c in state.poolBalances) {
+                if(state.poolBalances[c] !== 0) details.push(`${state.poolBalances[c]} ${c}`);
+            }
+            document.getElementById('poolCurDetails').innerText = details.length > 0 ? details.join(' / ') : '目前無外幣資產';
+        }
+
+        // --- Expense Logic ---
         function openModal(id, editId = null) {
             document.getElementById('modalOverlay').classList.remove('hidden');
             document.getElementById('modalOverlay').classList.add('flex');
@@ -275,55 +449,31 @@
             document.getElementById('modalOverlay').classList.replace('flex', 'hidden');
         }
 
-        function initCurrencySelects() {
-            const options = currencyList.map(c => `<option value="${c.code}">${c.flag} ${c.code}</option>`).join('');
-            document.getElementById('expCur').innerHTML = options;
-            document.getElementById('poolCur').innerHTML = options;
-        }
-
-        // --- Expense Logic ---
-        function setQuickTag(tag) {
-            document.getElementById('expNote').value = tag;
-        }
-
         function initExpenseForm(editId) {
             const isEdit = editId !== null;
             const ex = isEdit ? state.expenses.find(e => e.id === editId) : null;
             
             document.getElementById('expModalTitle').innerText = isEdit ? '編輯支出' : '新增支出';
             document.getElementById('expDeleteBtn').classList.toggle('hidden', !isEdit);
-            
-            if(isEdit) {
-                document.getElementById('expAmt').value = ex.amt;
-                document.getElementById('expCur').value = ex.cur;
-                document.getElementById('expNote').value = ex.note;
-            } else {
-                document.getElementById('expAmt').value = '';
-                document.getElementById('expNote').value = '';
-            }
+            document.getElementById('expAmt').value = isEdit ? ex.amt : '';
+            document.getElementById('expNote').value = isEdit ? ex.note : '';
+            document.getElementById('expCur').value = isEdit ? ex.cur : 'TWD';
 
-            // Render Category Buttons
             document.getElementById('catRow').innerHTML = state.cats.map(c => `
-                <button onclick="state.selectedCat='${c.id}'; initExpenseForm(${editId})" class="flex-1 h-20 rounded-2xl flex flex-col items-center justify-center gap-1 transition-all ${state.selectedCat === c.id ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}">
+                <button onclick="state.selectedCat='${c.id}'; initExpenseForm(${editId})" class="flex-1 h-16 rounded-2xl flex flex-col items-center justify-center gap-1 transition-all ${state.selectedCat === c.id ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}">
                     <span class="text-xl">${c.icon}</span>
                     <span class="text-[10px] font-black">${c.label}</span>
                 </button>
             `).join('');
 
-            // Render Quick Tags
-            const currentCat = state.cats.find(c => c.id === state.selectedCat);
-            document.getElementById('quickTags').innerHTML = currentCat.tags.map(t => `
-                <button onclick="setQuickTag('${t}')" class="quick-tag px-3 py-1.5 bg-white text-slate-500 rounded-lg text-[10px] font-bold">
-                    ${t}
-                </button>
-            `).join('');
+            const curCat = state.cats.find(c => c.id === state.selectedCat);
+            document.getElementById('quickTags').innerHTML = curCat.tags.map(t => `<button onclick="document.getElementById('expNote').value='${t}'" class="quick-tag px-3 py-1.5 bg-white text-slate-500 rounded-lg text-[10px] font-bold active:bg-indigo-50">${t}</button>`).join('');
 
-            const payer = document.getElementById('expPayer');
-            payer.innerHTML = '<option value="pool">💰 公積金錢包</option>' + state.members.map(m => `<option value="${m.id}" ${isEdit && ex.payer === m.id ? 'selected' : ''}>${m.avatar} ${m.name}</option>`).join('');
-            if(isEdit && ex.payer === 'pool') payer.value = 'pool';
+            document.getElementById('expPayer').innerHTML = '<option value="pool">💰 公積金錢包</option>' + state.members.map(m => `<option value="${m.id}" ${isEdit && ex.payer === m.id ? 'selected' : ''}>${m.avatar} ${m.name}</option>`).join('');
+            if(isEdit && ex.payer === 'pool') document.getElementById('expPayer').value = 'pool';
 
             document.getElementById('partiList').innerHTML = state.members.map(m => `
-                <button onclick="this.classList.toggle('selected')" data-uid="${m.id}" class="member-chip ${!isEdit || ex.participants.includes(m.id) ? 'selected' : ''} px-3 py-2 bg-slate-50 rounded-xl text-xs font-bold border border-slate-100 transition-all flex items-center gap-1">
+                <button onclick="this.classList.toggle('selected')" data-uid="${m.id}" class="member-chip ${!isEdit || ex.participants.includes(m.id) ? 'selected' : ''} px-3 py-2 bg-slate-50 rounded-xl text-xs font-bold border border-slate-100 transition-all">
                     ${m.avatar} ${m.name}
                 </button>
             `).join('');
@@ -335,26 +485,20 @@
             const note = document.getElementById('expNote').value || '未命名項目';
             const payer = document.getElementById('expPayer').value;
             const participants = Array.from(document.querySelectorAll('#partiList .member-chip.selected')).map(el => el.dataset.uid);
-
             if(amt <= 0 || participants.length === 0) return;
 
-            if(payer === 'pool') {
-                if(state.editingExpenseId) {
-                    const oldEx = state.expenses.find(e => e.id === state.editingExpenseId);
-                    if(oldEx.payer === 'pool') state.poolBalances[oldEx.cur] += oldEx.amt;
-                }
-                state.poolBalances[cur] -= amt;
-            } else if(state.editingExpenseId) {
-                const oldEx = state.expenses.find(e => e.id === state.editingExpenseId);
-                if(oldEx.payer === 'pool') state.poolBalances[oldEx.cur] += oldEx.amt;
+            if(state.editingExpenseId) {
+                const old = state.expenses.find(e => e.id === state.editingExpenseId);
+                if(old.payer === 'pool') state.poolBalances[old.cur] += old.amt;
             }
+            if(payer === 'pool') state.poolBalances[cur] -= amt;
 
-            const twdAmt = amt * state.rates[cur];
             const expenseData = {
                 id: state.editingExpenseId || Date.now(),
+                date: state.editingExpenseId ? state.expenses.find(e => e.id === state.editingExpenseId).date : new Date().toISOString().split('T')[0],
                 icon: state.cats.find(c => c.id === state.selectedCat).icon,
-                note, amt, cur, twdAmt, payer, participants,
-                time: state.editingExpenseId ? state.expenses.find(e => e.id === state.editingExpenseId).time : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                note, amt, cur, twdAmt: amt * state.rates[cur], payer, participants,
+                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             };
 
             if(state.editingExpenseId) {
@@ -363,8 +507,8 @@
             } else {
                 state.expenses.unshift(expenseData);
             }
-
             updateUI();
+            updateHomeFilterDropdowns(); // Ensure date select includes new dates
             closeModals();
         }
 
@@ -376,111 +520,19 @@
             closeModals();
         }
 
-        // --- Pool Logic ---
-        function initPoolModal() {
-            const logContainer = document.getElementById('poolHistory');
-            logContainer.innerHTML = state.poolLogs.length === 0 ? '<p class="text-center text-slate-300 text-[10px] py-4 font-bold">尚無存款紀錄</p>' : 
-            state.poolLogs.map(l => `
-                <div class="flex justify-between items-center p-3 bg-slate-50 rounded-xl">
-                    <span class="text-xs font-black text-slate-600">存入 ${l.time}</span>
-                    <div class="text-xs font-black text-orange-600">+ ${l.amt.toLocaleString()} ${l.cur}</div>
-                </div>
-            `).join('');
-
-            const details = Object.entries(state.poolBalances)
-                .filter(([cur, bal]) => bal > 0)
-                .map(([cur, bal]) => `${bal.toLocaleString()} ${cur}`)
-                .join(' / ');
-            document.getElementById('poolCurDetails').innerText = details || '餘額皆為 0';
-        }
-
-        function addPoolMoney() {
-            const amt = parseFloat(document.getElementById('poolAmt').value) || 0;
-            const cur = document.getElementById('poolCur').value;
-            if(amt <= 0) return;
-            state.poolBalances[cur] += amt;
-            state.poolLogs.unshift({ amt, cur, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) });
-            document.getElementById('poolAmt').value = '';
-            updateUI();
-            initPoolModal();
-        }
-
-        // --- Member Logic ---
-        function updateMemberPage() {
-            const container = document.getElementById('memberListContainer');
-            container.innerHTML = state.members.map(m => `
-                <div onclick="openMemberEdit('${m.id}')" class="bg-white p-5 rounded-[1.5rem] border border-slate-100 flex items-center justify-between shadow-sm active:scale-95 transition-transform cursor-pointer">
-                    <div class="flex items-center gap-4">
-                        <div class="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-2xl">${m.avatar}</div>
-                        <div><span class="font-black text-slate-700 block">${m.name}</span><span class="text-[9px] text-slate-300 font-bold">點擊修改</span></div>
-                    </div>
-                    <i class="fas fa-edit text-slate-200"></i>
-                </div>
-            `).join('');
-            initEmojiPicker('newMemberEmojiPicker', (e) => {
-                state.tempAvatar = e;
-                document.getElementById('newMemberAvatarBtn').innerText = e;
-                document.getElementById('newMemberEmojiPicker').classList.add('hidden');
-            });
-        }
-
-        function initEmojiPicker(id, onPick) {
-            document.getElementById(id).innerHTML = emojis.map(e => `
-                <button onclick="(${onPick.toString()})('${e}')" class="w-10 h-10 flex items-center justify-center text-xl hover:bg-white rounded-lg">${e}</button>
-            `).join('');
-        }
-
-        function toggleEmojiPicker(type) {
-            const id = type === 'newMemberEmoji' ? 'newMemberEmojiPicker' : 'editMemberEmojiPicker';
-            document.getElementById(id).classList.toggle('hidden');
-        }
-
-        function addNewMember() {
-            const name = document.getElementById('newMemberName').value.trim();
-            if(!name) return;
-            state.members.push({ id: 'm' + Date.now(), name, avatar: state.tempAvatar });
-            document.getElementById('newMemberName').value = '';
-            updateMemberPage();
-            updateUI();
-        }
-
-        function openMemberEdit(id) {
-            state.editingMemberId = id;
-            const m = state.members.find(m => m.id === id);
-            document.getElementById('editMemberAvatarBtn').innerText = m.avatar;
-            document.getElementById('editMemberName').value = m.name;
-            state.tempAvatar = m.avatar;
-            initEmojiPicker('editMemberEmojiPicker', (e) => {
-                state.tempAvatar = e;
-                document.getElementById('editMemberAvatarBtn').innerText = e;
-                document.getElementById('editMemberEmojiPicker').classList.add('hidden');
-            });
-            openModal('memberEditModal');
-        }
-
-        function saveMemberEdit() {
-            const m = state.members.find(m => m.id === state.editingMemberId);
-            m.name = document.getElementById('editMemberName').value;
-            m.avatar = state.tempAvatar;
-            updateMemberPage();
-            updateUI();
-            closeModals();
-        }
-
-        function deleteMember() {
-            state.members = state.members.filter(m => m.id !== state.editingMemberId);
-            updateMemberPage();
-            updateUI();
-            closeModals();
-        }
-
-        // --- Global UI ---
+        // --- UI Updating ---
         function updateUI() {
-            let poolTwdTotal = 0;
-            for(let [cur, bal] of Object.entries(state.poolBalances)) poolTwdTotal += bal * state.rates[cur];
-            const displayPool = Math.max(0, Math.round(poolTwdTotal));
-            document.getElementById('headerPoolVal').innerText = `${displayPool.toLocaleString()} TWD`;
-            document.getElementById('modalPoolVal').innerText = `${displayPool.toLocaleString()} TWD`;
+            let totalPoolTwd = 0;
+            for(let c in state.poolBalances) totalPoolTwd += state.poolBalances[c] * state.rates[c];
+            document.getElementById('headerPoolVal').innerText = `${Math.round(totalPoolTwd).toLocaleString()} TWD`;
+            document.getElementById('modalPoolVal').innerText = `${Math.round(totalPoolTwd).toLocaleString()} TWD`;
+
+            const today = new Date().toISOString().split('T')[0];
+            let filtered = state.expenses.filter(e => {
+                const dMatch = state.homeFilters.date === 'all' || (state.homeFilters.date === 'today' ? e.date === today : e.date === state.homeFilters.date);
+                const pMatch = state.homeFilters.payer === 'all' || e.payer === state.homeFilters.payer;
+                return dMatch && pMatch;
+            });
 
             const totalTwd = Math.round(state.expenses.reduce((s, e) => s + e.twdAmt, 0));
             document.getElementById('totalDisplay').innerText = `$ ${totalTwd.toLocaleString()}`;
@@ -488,17 +540,17 @@
             document.getElementById('statMembers').innerText = `${state.members.length} 位夥伴`;
 
             const log = document.getElementById('logContainer');
-            log.innerHTML = state.expenses.length === 0 ? '<div class="text-center py-20 opacity-20"><p class="font-black">尚無支出紀錄</p></div>' : 
-            state.expenses.map(ex => `
-                <div onclick="openModal('expenseModal', ${ex.id})" class="bg-white p-4 rounded-2xl flex items-center gap-3 border border-slate-100 shadow-sm active:scale-95 transition-transform cursor-pointer">
-                    <div class="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-xl">${ex.icon}</div>
-                    <div class="flex-1 min-w-0">
-                        <h4 class="font-black text-sm text-slate-700 truncate">${ex.note}</h4>
-                        <span class="text-[9px] ${ex.payer === 'pool' ? 'text-orange-400' : 'text-indigo-400'} font-black uppercase tracking-widest">${ex.payer === 'pool' ? '公積金' : '墊付'} · ${ex.time}</span>
+            log.innerHTML = filtered.length === 0 ? '<div class="text-center py-20 opacity-20 font-black">無相符紀錄</div>' : 
+            filtered.map(ex => `
+                <div onclick="openModal('expenseModal', ${ex.id})" class="bg-white p-4 rounded-2xl flex items-center gap-3 border border-slate-100 shadow-sm active:scale-95 transition-transform">
+                    <div class="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-xl">${ex.icon}</div>
+                    <div class="flex-1">
+                        <h4 class="font-black text-sm text-slate-700">${ex.note}</h4>
+                        <span class="text-[9px] text-slate-300 font-black">${ex.date} ${ex.time}</span>
                     </div>
                     <div class="text-right">
                         <div class="font-black text-sm text-slate-900">${ex.amt.toLocaleString()} ${ex.cur}</div>
-                        <div class="text-[9px] text-slate-300 font-bold">≈ ${Math.round(ex.twdAmt).toLocaleString()} TWD</div>
+                        <div class="text-[9px] text-indigo-400 font-bold">${ex.payer === 'pool' ? '公積金' : state.members.find(m => m.id === ex.payer)?.name || '未知'}</div>
                     </div>
                 </div>
             `).join('');
@@ -508,10 +560,12 @@
             const container = document.getElementById('settleContent');
             let currencies = [...new Set(state.expenses.map(e => e.cur))];
             if(currencies.length === 0) {
-                container.innerHTML = '<div class="text-center py-20 opacity-20 font-black">無須結算</div>';
+                container.innerHTML = '<div class="text-center py-20 opacity-20 font-black">尚無對帳資訊</div>';
                 return;
             }
-            container.innerHTML = currencies.map(cur => {
+
+            let html = '';
+            currencies.forEach(cur => {
                 let balances = {};
                 state.members.forEach(m => balances[m.id] = 0);
                 state.expenses.filter(e => e.cur === cur && e.payer !== 'pool').forEach(ex => {
@@ -519,11 +573,13 @@
                     balances[ex.payer] += ex.amt;
                     ex.participants.forEach(uid => balances[uid] -= perShare);
                 });
+                
                 let debtors = [], creditors = [];
                 for (let id in balances) {
                     if (balances[id] < -0.01) debtors.push({ id, amt: Math.abs(balances[id]) });
                     else if (balances[id] > 0.01) creditors.push({ id, amt: balances[id] });
                 }
+
                 let paths = [];
                 let d = 0, c = 0;
                 while (d < debtors.length && c < creditors.length) {
@@ -532,32 +588,47 @@
                     debtors[d].amt -= transfer; creditors[c].amt -= transfer;
                     if (debtors[d].amt < 0.01) d++; if (creditors[c].amt < 0.01) c++;
                 }
-                return `
-                    <div class="bg-white rounded-[2rem] overflow-hidden shadow-sm border border-slate-100 mb-6">
-                        <div class="bg-indigo-50/50 p-5 font-black text-indigo-900 border-b border-indigo-100/50 flex justify-between">
-                            <span>${currencyList.find(c => c.code === cur).flag} ${cur}</span>
-                        </div>
-                        <div class="p-6 space-y-4">
-                            ${paths.length === 0 ? '<p class="text-center text-slate-300 text-xs py-2 font-bold">已結清</p>' : 
-                                paths.map(p => {
+
+                let filteredPaths = state.settleFilterMember === 'all' ? paths : 
+                    paths.filter(p => p.from === state.settleFilterMember || p.to === state.settleFilterMember);
+
+                if (filteredPaths.length > 0) {
+                    html += `
+                        <div class="bg-white rounded-[2rem] overflow-hidden shadow-sm border border-slate-100">
+                            <div class="bg-indigo-50/50 p-5 font-black text-indigo-900 border-b border-indigo-100/50 flex justify-between items-center">
+                                <span>${currencyList.find(c => c.code === cur).flag} ${cur} 結算</span>
+                                <span class="text-[10px] bg-white px-2 py-1 rounded-lg shadow-sm">對帳完畢</span>
+                            </div>
+                            <div class="p-6 space-y-3">
+                                ${filteredPaths.map(p => {
                                     const fromU = state.members.find(m => m.id === p.from);
                                     const toU = state.members.find(m => m.id === p.to);
-                                    return `<div class="flex items-center justify-between bg-slate-50 p-4 rounded-2xl">
-                                        <div class="text-center"><div class="text-lg">${fromU.avatar}</div><div class="text-[10px] font-black">${fromU.name}</div></div>
-                                        <div class="flex flex-col items-center">
-                                            <div class="font-black text-indigo-600">${Math.ceil(p.amt).toLocaleString()} ${cur}</div>
-                                            <i class="fas fa-arrow-right text-indigo-200"></i>
+                                    const isSelfPaying = state.settleFilterMember === p.from;
+                                    return `<div class="flex items-center justify-between bg-slate-50 p-4 rounded-2xl ${isSelfPaying ? 'ring-2 ring-indigo-500 bg-indigo-50/30' : ''}">
+                                        <div class="text-center w-12"><div class="text-lg">${fromU.avatar}</div><div class="text-[9px] font-black">${fromU.name}</div></div>
+                                        <div class="flex flex-col items-center flex-1 px-4">
+                                            <div class="font-black text-indigo-600 text-sm">${Math.ceil(p.amt).toLocaleString()}</div>
+                                            <div class="w-full h-[1px] bg-indigo-100 relative my-1"><i class="fas fa-chevron-right absolute -right-1 -top-[4px] text-[8px] text-indigo-300"></i></div>
+                                            <div class="text-[8px] font-black text-slate-300 uppercase">需支付給</div>
                                         </div>
-                                        <div class="text-center"><div class="text-lg">${toU.avatar}</div><div class="text-[10px] font-black">${toU.name}</div></div>
+                                        <div class="text-center w-12"><div class="text-lg">${toU.avatar}</div><div class="text-[9px] font-black">${toU.name}</div></div>
                                     </div>`;
-                                }).join('')
-                            }
-                        </div>
-                    </div>`;
-            }).join('');
+                                }).join('')}
+                            </div>
+                        </div>`;
+                }
+            });
+            container.innerHTML = html || '<div class="text-center py-20 opacity-20 font-black">此成員目前無須結算</div>';
         }
 
-        window.onload = () => { initCurrencySelects(); updateUI(); updateMemberPage(); }
+        // --- Initialization ---
+        function initCurrencySelects() {
+            const opts = currencyList.map(c => `<option value="${c.code}">${c.flag} ${c.code}</option>`).join('');
+            document.getElementById('expCur').innerHTML = opts;
+            document.getElementById('poolCur').innerHTML = opts;
+        }
+
+        window.onload = () => { initCurrencySelects(); updateUI(); updateHomeFilterDropdowns(); updateMemberPage(); }
     </script>
 </body>
 </html>
