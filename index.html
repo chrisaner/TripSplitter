@@ -249,7 +249,7 @@
 <script>
     const CLIENT_ID = '504572171815-s9jo0jfp8o2li1ku0ilo8q9jbr8qi8e4.apps.googleusercontent.com';
     const API_KEY = 'AIzaSyCj1LAE-ngv3yHQEyA5WMg40YTeyYh4d9Q';
-    const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/discovery/v1/apis/drive/v3/rest';
+    const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
     const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 
     let tokenClient;
@@ -313,7 +313,7 @@
                 q: "name = 'TripSplitter_Data.json' and trashed = false",
                 fields: 'files(id, name)',
             });
-            const files = response.result.files;
+            const files = response?.result?.files || [];
             if (files && files.length > 0) {
                 cloudFileId = files[0].id;
                 const fileContent = await gapi.client.drive.files.get({
@@ -329,7 +329,8 @@
     }
 
     async function syncToCloud() {
-        if (!gapi.client.getToken()) return;
+        if (!gapiInited) return;
+        if (!gapi.client || !gapi.client.getToken || !gapi.client.getToken()) return;
         const metadata = { name: 'TripSplitter_Data.json', mimeType: 'application/json' };
         const content = JSON.stringify(state);
         try {
