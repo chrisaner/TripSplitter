@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TripSplitter Beta 1.7</title>
+    <title>TripSplitter Beta 1.8</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -36,6 +36,11 @@
         }
         .page-content { display: none; flex: 1; padding-bottom: 120px; }
         .page-content.active { display: flex; flex-direction: column; }
+        .quick-tag {
+            transition: all 0.2s;
+            border: 1px solid #e2e8f0;
+        }
+        .quick-tag:active { transform: scale(0.95); background-color: #e0e7ff; }
     </style>
 </head>
 <body class="text-slate-800">
@@ -134,7 +139,10 @@
                 </div>
                 
                 <!-- Category Select -->
-                <div class="flex justify-between mb-6 gap-2" id="catRow"></div>
+                <div class="flex justify-between mb-4 gap-2" id="catRow"></div>
+
+                <!-- Quick Tags -->
+                <div id="quickTags" class="flex flex-wrap gap-2 mb-4"></div>
 
                 <div class="flex gap-2 mb-3 h-14">
                     <select id="expCur" class="currency-select shadow-sm"></select>
@@ -223,10 +231,10 @@
             selectedCat: 'food',
             rates: { "TWD": 1, "USD": 32.5, "EUR": 35.2, "JPY": 0.21, "KRW": 0.024, "THB": 0.92, "CNY": 4.5 },
             cats: [
-                { id: 'food', icon: '🍱', label: '餐飲' },
-                { id: 'stay', icon: '🏨', label: '住宿' },
-                { id: 'move', icon: '🚌', label: '交通' },
-                { id: 'shop', icon: '🛍️', label: '購物' }
+                { id: 'food', icon: '🍱', label: '餐飲', tags: ['早餐', '午餐', '晚餐', '咖啡', '消夜', '超商'] },
+                { id: 'stay', icon: '🏨', label: '住宿', tags: ['飯店', '民宿', '青旅', '訂房訂金'] },
+                { id: 'move', icon: '🚌', label: '交通', tags: ['車票', '計程車', '加油', '租車', '機票', '地鐵'] },
+                { id: 'shop', icon: '🛍️', label: '購物', tags: ['紀念品', '衣服', '藥妝', '免稅店'] }
             ],
             editingExpenseId: null,
             editingMemberId: null,
@@ -257,8 +265,7 @@
             if(id === 'expenseModal') {
                 state.editingExpenseId = editId;
                 const ex = editId ? state.expenses.find(e => e.id === editId) : null;
-                // 初始化分類
-                state.selectedCat = ex ? state.cats.find(c => c.icon === ex.icon).id : 'food';
+                state.selectedCat = ex ? (state.cats.find(c => c.icon === ex.icon)?.id || 'food') : 'food';
                 initExpenseForm(editId);
             }
             if(id === 'poolModal') initPoolModal();
@@ -275,6 +282,10 @@
         }
 
         // --- Expense Logic ---
+        function setQuickTag(tag) {
+            document.getElementById('expNote').value = tag;
+        }
+
         function initExpenseForm(editId) {
             const isEdit = editId !== null;
             const ex = isEdit ? state.expenses.find(e => e.id === editId) : null;
@@ -296,6 +307,14 @@
                 <button onclick="state.selectedCat='${c.id}'; initExpenseForm(${editId})" class="flex-1 h-20 rounded-2xl flex flex-col items-center justify-center gap-1 transition-all ${state.selectedCat === c.id ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-50 text-slate-400'}">
                     <span class="text-xl">${c.icon}</span>
                     <span class="text-[10px] font-black">${c.label}</span>
+                </button>
+            `).join('');
+
+            // Render Quick Tags
+            const currentCat = state.cats.find(c => c.id === state.selectedCat);
+            document.getElementById('quickTags').innerHTML = currentCat.tags.map(t => `
+                <button onclick="setQuickTag('${t}')" class="quick-tag px-3 py-1.5 bg-white text-slate-500 rounded-lg text-[10px] font-bold">
+                    ${t}
                 </button>
             `).join('');
 
