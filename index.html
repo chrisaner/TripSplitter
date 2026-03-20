@@ -350,7 +350,7 @@ export default function App() {
                         <p className="font-bold text-gray-800 text-sm truncate">{exp.note}</p>
                         <div className="flex items-center gap-2 mt-0.5">
                            <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded flex items-center gap-1 whitespace-nowrap">
-                              <Clock size={10}/> {exp.date}
+                             <Clock size={10}/> {exp.date}
                            </span>
                            <span className="text-[10px] text-gray-400 truncate">
                              {isKitty ? '💰公積金' : `${payer?.avatar || '👤'} ${payer?.name || '未知'}`}
@@ -508,7 +508,6 @@ export default function App() {
                <p className="text-[10px] font-bold text-gray-400 ml-1 uppercase">分攤名單</p>
                <div className="grid grid-cols-2 gap-2">
                  {members.map(m => {
-                   // 核心修復：使用選取屬性保護
                    const isSelected = formData.selectedMembers?.includes(m.id);
                    return (
                      <button 
