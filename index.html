@@ -807,14 +807,16 @@
       url.searchParams.set("room", roomId);
       window.history.replaceState({}, "", url);
 
-      const tripRef = ref(db, `trips/${roomId}`);
-      roomUnsubscribeRef = tripRef;
+      const tripRootRef = ref(db, `trips/${roomId}`);
+      const tripStateRef = ref(db, `trips/${roomId}/state`);
       const logRef = ref(db, `trips/${roomId}/logs`);
 
+      roomUnsubscribeRef = tripStateRef;
+
       try {
-        const snapshot = await get(tripRef);
+        const snapshot = await get(tripRootRef);
         if (!snapshot.exists()) {
-          await set(tripRef, {
+          await set(tripRootRef, {
             state: {
               poolBalances: state.poolBalances,
               members: state.members,
@@ -832,11 +834,11 @@
         console.error("Create room failed:", err);
       }
 
-      onValue(tripRef, (snapshot) => {
-        const data = snapshot.val();
-        if (!data || !data.state) return;
+      onValue(tripStateRef, (snapshot) => {
+        const remoteState = snapshot.val();
+        if (!remoteState) return;
 
-        const incoming = mergeState(data.state);
+        const incoming = mergeState(remoteState);
         const incomingHash = hashState(incoming);
         const currentHash = hashState(state);
 
@@ -856,7 +858,9 @@
           filterMemberId: state.filterMemberId,
           filterDate: state.filterDate,
           tempReceipt: state.tempReceipt,
-          tempEmoji: state.tempEmoji
+          tempEmoji: state.tempEmoji,
+          editingMemberId: state.editingMemberId,
+          myProfile: state.myProfile
         };
 
         state = {
@@ -870,7 +874,7 @@
         lastSavedHash = hashState(state);
         isApplyingRemote = false;
       }, (error) => {
-        console.error("Realtime sync failed:", error);
+        console.error("Realtime state sync failed:", error);
         updateSyncUI(false);
       });
 
@@ -1296,6 +1300,12 @@
 
     function renderMembers() {
       const list = document.getElementById('member-list');
+      if (!list) return;
+
+      if (!state.members || state.members.length === 0) {
+        list.innerHTML = `<div class="py-20 text-center opacity-20 font-bold">尚無成員</div>`;
+        return;
+      }
       list.innerHTML = state.members.map(m => `
         <div class="bg-white p-5 rounded-[2rem] border border-gray-50 flex items-center justify-between">
           <div class="flex items-center gap-4">
