@@ -103,7 +103,6 @@
             </div>
           </div>
         </div>
-        <div id="timeline-list" class="space-y-4"></div>
       </section>
 
       <section id="page-members" class="tab-pane px-5 pt-4">
@@ -1188,10 +1187,15 @@
     function renderAll() {
       updateFiltersUI();
       renderExpenseSummary();
-      renderTimeline();
+      renderActivity();
       renderMembers();
       updateHeader();
-      if (document.getElementById('page-settle').classList.contains('active')) {
+
+      if (document.getElementById('page-logs')?.classList.contains('active')) {
+        renderTimeline();
+      }
+
+      if (document.getElementById('page-settle')?.classList.contains('active')) {
         calculateSettle();
       }
     }
