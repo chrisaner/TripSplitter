@@ -116,6 +116,13 @@
         <div id="member-list" class="grid grid-cols-1 gap-3"></div>
       </section>
 
+      <section id="page-logs" class="tab-pane px-5 pt-4">
+        <div class="flex justify-between items-center mb-6">
+          <h2 class="text-2xl font-black text-[#3b3f8c]">操作紀錄</h2>
+        </div>
+        <div id="timeline-list" class="space-y-4 pb-10"></div>
+      </section>
+      
       <section id="page-settle" class="tab-pane px-5 pt-4">
         <div class="flex justify-between items-end mb-6">
           <h2 class="text-2xl font-black text-[#3b3f8c]">結算報告</h2>
@@ -144,6 +151,10 @@
           <i class="fas fa-plus text-2xl"></i>
         </button>
       </div>
+      <button onclick="switchTab('logs')" id="nav-logs" class="flex flex-col items-center gap-1 text-gray-300 min-w-[52px]">
+        <i class="fas fa-scroll text-xl"></i>
+        <span class="text-[10px] font-black">紀錄</span>
+      </button>
       <button onclick="switchTab('settle')" id="nav-settle" class="flex flex-col items-center gap-1 text-gray-300">
         <i class="fas fa-file-invoice-dollar text-xl"></i><span class="text-[10px] font-black">結算</span>
       </button>
@@ -1021,20 +1032,33 @@
       const member = state.members.find(m => m.id === id);
       if (!member) return;
 
+      const confirmDelete = confirm(`確定要刪除成員「${member.name}」嗎？`);
+      if (!confirmDelete) return;
+
+      // 備份舊資料，供 Undo 用
+      const oldMember = { ...member };
+
+      // 若有支出仍引用這位成員，先把 payer 改成 pool，split 中移除該成員
+      state.expenses = state.expenses.map(e => {
+        const newSplit = Array.isArray(e.split) ? e.split.filter(mid => mid !== id) : [];
+
+        return {
+          ...e,
+          payer: e.payer === id ? 'pool' : e.payer,
+          split: newSplit.length > 0 ? newSplit : (Array.isArray(e.split) ? e.split : [])
+        };
+      });
+
+      // 真正刪除 member
       state.members = state.members.filter(m => m.id !== id);
-      state.expenses = state.expenses.map(e => ({
-        ...e,
-        split: e.split.filter(mid => mid !== id),
-        payer: e.payer === id ? 'pool' : e.payer
-      })).filter(e => e.split.length > 0);
 
       await addLog({
         type: 'member_delete',
-        text: `刪除成員 ${member.name}`,
+        text: `刪除成員 ${oldMember.name}`,
         undoable: true,
         undoAction: {
           type: 'restore_member',
-          payload: member
+          payload: oldMember
         }
       });
 
@@ -1283,17 +1307,27 @@
       document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
       document.getElementById(`page-${tab}`).classList.add('active');
 
-      ['activity', 'members', 'settle'].forEach(name => {
+      ['activity', 'members', 'logs', 'settle'].forEach(name => {
         const btn = document.getElementById(`nav-${name}`);
-        btn.classList.remove('text-[#5d5fef]');
-        btn.classList.add('text-gray-300');
+        if (btn) {
+          btn.classList.remove('text-[#5d5fef]');
+          btn.classList.add('text-gray-300');
+        }
       });
 
       const activeBtn = document.getElementById(`nav-${tab}`);
-      activeBtn.classList.remove('text-gray-300');
-      activeBtn.classList.add('text-[#5d5fef]');
+      if (activeBtn) {
+        activeBtn.classList.remove('text-gray-300');
+        activeBtn.classList.add('text-[#5d5fef]');
+      }
 
-      if (tab === 'settle') calculateSettle();
+      if (tab === 'settle') {
+        calculateSettle();
+      }
+
+      if (tab === 'logs') {
+        renderTimeline();
+      }
     }
 
     async function saveExpense() {
