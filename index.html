@@ -324,6 +324,7 @@
     let roomUnsubscribeRef = null;
     let currentRoomId = null;
     let currentUserUid = null;
+    let firebaseReady = false;
     let isCloudConnected = false;
     let isApplyingRemote = false;
     let lastSavedHash = "";
@@ -745,15 +746,26 @@
       try {
         const cred = await signInAnonymously(auth);
         currentUserUid = cred.user.uid;
+        firebaseReady = true;
+        console.log("Firebase auth ready:", currentUserUid);
       } catch (err) {
         console.error("Firebase anonymous auth failed:", err);
-        alert("Firebase 匿名登入失敗，請先確認 Firebase Authentication 已啟用 Anonymous。");
+        firebaseReady = false;
+        alert("Firebase 匿名登入失敗，請先確認 Authentication 已啟用 Anonymous。");
       }
     }
 
     async function handleRoomClick() {
+      if (!firebaseReady) {
+        try {
+          await initFirebaseAuth();
+        } catch (err) {
+          console.error(err);
+        }
+      }
+
       if (!currentUserUid) {
-        alert("Firebase 尚未完成初始化");
+        alert("Firebase 仍未完成初始化，請稍後再試一次");
         return;
       }
 
