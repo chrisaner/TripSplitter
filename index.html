@@ -103,7 +103,7 @@
             </div>
           </div>
         </div>
-        <div id="activity-list" class="space-y-4"></div>
+        <div id="timeline-list" class="space-y-4"></div>
       </section>
 
       <section id="page-members" class="tab-pane px-5 pt-4">
@@ -319,6 +319,7 @@
     let lastSavedHash = "";
     let saveTimer = null;
     let poolDisplayIndex = 0;
+    let currentLogs = {};
 
     const DEFAULT_STATE = {
       poolBalances: {
@@ -350,7 +351,11 @@
       filterDate: 'all',
       tempReceipt: null,
       tempEmoji: '👤',
-      editingMemberId: null
+      editingMemberId: null,
+      myProfile: {
+      name: 'Kris',
+      emoji: '👤'
+      }
     };
 
     let state = loadLocalState();
@@ -417,6 +422,218 @@
         .replace(/'/g, "&#039;");
     }
 
+    function formatLogTime(ts) {
+      const d = new Date(ts);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mi = String(d.getMinutes()).padStart(2, '0');
+      return `${yyyy}/${mm}/${dd} ${hh}:${mi}`;
+    }
+
+    function getActorProfile() {
+      return {
+        uid: currentUserUid || 'unknown',
+        name: state.myProfile?.name || '我',
+        emoji: state.myProfile?.emoji || '👤'
+      };
+    }
+
+    async function addLog({
+      type,
+      text,
+      undoable = false,
+      undoAction = null,
+      extra = {}
+    }) {
+      if (!currentRoomId || !db) return;
+
+      const actor = getActorProfile();
+      const logId = 'log_' + crypto.randomUUID();
+
+      const logData = {
+        id: logId,
+        ts: Date.now(),
+        actorUid: actor.uid,
+        actorName: actor.name,
+        actorEmoji: actor.emoji,
+        type,
+        text,
+        undoable,
+        undoAction,
+        extra
+      };
+
+      try {
+        await set(ref(db, `trips/${currentRoomId}/logs/${logId}`), logData);
+      } catch (err) {
+        console.error('addLog failed:', err);
+      }
+    }
+
+    function getFilteredLogs() {
+      let logs = Object.values(currentLogs || {}).sort((a, b) => b.ts - a.ts);
+
+      if (state.filterDate !== 'all') {
+        logs = logs.filter(log => {
+          const d = new Date(log.ts);
+          const yyyy = d.getFullYear();
+          const mm = String(d.getMonth() + 1).padStart(2, '0');
+          const dd = String(d.getDate()).padStart(2, '0');
+          return `${yyyy}-${mm}-${dd}` === state.filterDate;
+        });
+      }
+
+      if (state.filterMemberId !== 'all') {
+        if (state.filterMemberId === 'pool') {
+          logs = logs.filter(log => log.type === 'pool_add' || log.type === 'pool_set');
+        } else {
+          logs = logs.filter(log => log.actorUid === state.filterMemberId);
+        }
+      }
+
+      return logs;
+    }
+
+    function renderTimeline() {
+      const container = document.getElementById('timeline-list');
+      if (!container) return;
+
+      const logs = getFilteredLogs();
+
+      if (logs.length === 0) {
+        container.innerHTML = `<div class="py-20 text-center opacity-20 font-bold">尚無符合條件的活動</div>`;
+        return;
+      }
+
+      container.innerHTML = logs.map(log => `
+        <div class="bg-white p-5 rounded-[2rem] border border-gray-50 shadow-sm">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex items-start gap-4 min-w-0">
+              <div class="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-xl flex-shrink-0">
+                ${escapeHtml(log.actorEmoji || '👤')}
+              </div>
+
+              <div class="min-w-0">
+                <p class="font-black text-[#3b3f8c] text-sm">
+                  ${escapeHtml(log.actorName || '未知成員')}
+                </p>
+                <p class="text-sm text-gray-600 mt-0.5 break-words">
+                  ${escapeHtml(log.text || '')}
+                </p>
+                <p class="text-[10px] font-bold text-gray-400 mt-1">
+                  ${formatLogTime(log.ts)}
+                </p>
+              </div>
+            </div>
+
+            ${log.undoable ? `
+              <button onclick="undoLogAction('${log.id}')"
+                class="text-[10px] font-black text-[#5d5fef] bg-indigo-50 px-3 py-1.5 rounded-xl flex-shrink-0">
+                Undo
+              </button>
+            ` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function undoLogAction(logId) {
+      const log = currentLogs[logId];
+      if (!log || !log.undoable || !log.undoAction) return;
+
+      const action = log.undoAction;
+
+      try {
+        switch (action.type) {
+          case 'delete_expense': {
+            const idx = state.expenses.findIndex(e => e.id === action.targetId);
+            if (idx !== -1) {
+              const exp = state.expenses[idx];
+              if (exp.payer === 'pool') {
+                addPoolBalance(exp.currency, exp.amount);
+              }
+              state.expenses.splice(idx, 1);
+            }
+            break;
+          }
+
+          case 'restore_expense': {
+            const old = action.payload;
+            const idx = state.expenses.findIndex(e => e.id === old.id);
+
+            if (idx !== -1) {
+              const current = state.expenses[idx];
+              if (current.payer === 'pool') addPoolBalance(current.currency, current.amount);
+              state.expenses[idx] = old;
+            } else {
+              state.expenses.push(old);
+            }
+
+            if (old.payer === 'pool') {
+              addPoolBalance(old.currency, -old.amount);
+            }
+            break;
+          }
+
+          case 'delete_member': {
+            const idx = state.members.findIndex(m => m.id === action.targetId);
+            if (idx !== -1) {
+              state.members.splice(idx, 1);
+            }
+            break;
+          }
+
+          case 'restore_member': {
+            const member = action.payload;
+            const idx = state.members.findIndex(m => m.id === member.id);
+            if (idx === -1) {
+              state.members.push(member);
+            } else {
+              state.members[idx] = member;
+            }
+            break;
+          }
+
+          case 'restore_pool_balance': {
+            setPoolBalance(action.currency, action.amount);
+            break;
+          }
+
+          default:
+            return;
+        }
+
+        renderAll();
+        scheduleSync();
+
+        await addLog({
+          type: 'undo',
+          text: `復原操作：${log.text}`,
+          undoable: false
+        });
+
+        currentLogs[logId] = {
+          ...log,
+          undoable: false,
+          undoneAt: Date.now()
+        };
+
+        try {
+          await set(ref(db, `trips/${currentRoomId}/logs/${logId}`), currentLogs[logId]);
+        } catch (err) {
+          console.error('mark undo log failed:', err);
+        }
+
+        renderTimeline();
+      } catch (err) {
+        console.error('undo failed:', err);
+      }
+    }
+    
+
+    
     function getPoolBalance(currency) {
       return Number(state.poolBalances?.[currency] || 0);
     }
@@ -570,6 +787,7 @@
 
       const tripRef = ref(db, `trips/${roomId}`);
       roomUnsubscribeRef = tripRef;
+      const logRef = ref(db, `trips/${roomId}/logs`);
 
       try {
         const snapshot = await get(tripRef);
@@ -632,6 +850,13 @@
       }, (error) => {
         console.error("Realtime sync failed:", error);
         updateSyncUI(false);
+      });
+
+      onValue(logRef, (snapshot) => {
+        currentLogs = snapshot.val() || {};
+        renderTimeline();
+      }, (error) => {
+        console.error("Log sync failed:", error);
       });
     }
 
@@ -741,24 +966,48 @@
       document.getElementById('member-emoji-display').innerText = e;
     }
 
-    function saveMember() {
+    async function saveMember() {
       const name = document.getElementById('member-name').value.trim();
       if (!name) return;
 
       if (state.editingMemberId) {
         const idx = state.members.findIndex(m => m.id === state.editingMemberId);
         if (idx !== -1) {
+          const oldMember = { ...state.members[idx] };
+
           state.members[idx] = {
             ...state.members[idx],
             name,
             emoji: state.tempEmoji
           };
+
+          await addLog({
+            type: 'member_edit',
+            text: `修改成員 ${name}`,
+            undoable: true,
+            undoAction: {
+              type: 'restore_member',
+              payload: oldMember
+            }
+          });
         }
       } else {
-        state.members.push({
+        const newMember = {
           id: 'm' + Date.now(),
           name,
           emoji: state.tempEmoji
+        };
+
+        state.members.push(newMember);
+
+        await addLog({
+          type: 'member_add',
+          text: `新增成員 ${name}`,
+          undoable: true,
+          undoAction: {
+            type: 'delete_member',
+            targetId: newMember.id
+          }
         });
       }
 
@@ -768,13 +1017,26 @@
       scheduleSync();
     }
 
-    function deleteMember(id) {
+    async function deleteMember(id) {
+      const member = state.members.find(m => m.id === id);
+      if (!member) return;
+
       state.members = state.members.filter(m => m.id !== id);
       state.expenses = state.expenses.map(e => ({
         ...e,
         split: e.split.filter(mid => mid !== id),
         payer: e.payer === id ? 'pool' : e.payer
       })).filter(e => e.split.length > 0);
+
+      await addLog({
+        type: 'member_delete',
+        text: `刪除成員 ${member.name}`,
+        undoable: true,
+        undoAction: {
+          type: 'restore_member',
+          payload: member
+        }
+      });
 
       renderAll();
       scheduleSync();
@@ -788,12 +1050,38 @@
       openModal('poolModal');
     }
 
-    function updatePool(mode) {
+    async function updatePool(mode) {
       const currency = document.getElementById('pool-currency-select').value;
       const val = parseFloat(document.getElementById('pool-input').value) || 0;
+      const oldAmount = getPoolBalance(currency);
 
-      if (mode === 'add') addPoolBalance(currency, val);
-      else setPoolBalance(currency, val);
+      if (mode === 'add') {
+        addPoolBalance(currency, val);
+
+        await addLog({
+          type: 'pool_add',
+          text: `公積金增加 ${val.toLocaleString()} ${currency}`,
+          undoable: true,
+          undoAction: {
+            type: 'restore_pool_balance',
+            currency,
+            amount: oldAmount
+          }
+        });
+      } else {
+        setPoolBalance(currency, val);
+
+        await addLog({
+          type: 'pool_set',
+          text: `公積金重設為 ${val.toLocaleString()} ${currency}`,
+          undoable: true,
+          undoAction: {
+            type: 'restore_pool_balance',
+            currency,
+            amount: oldAmount
+          }
+        });
+      }
 
       renderAll();
       refreshPoolModalDisplay();
@@ -865,10 +1153,18 @@
       `).join('');
     }
 
+    function setMyProfile(name, emoji) {
+      state.myProfile = {
+        name: name || 'Kris',
+        emoji: emoji || '👤'
+      };
+      saveLocalState();
+    }
+    
     function renderAll() {
       updateFiltersUI();
       renderExpenseSummary();
-      renderActivity();
+      renderTimeline();
       renderMembers();
       updateHeader();
       if (document.getElementById('page-settle').classList.contains('active')) {
@@ -878,7 +1174,17 @@
 
     function updateFiltersUI() {
       const dateSelect = document.getElementById('filter-date-select');
-      const uniqueDates = [...new Set(state.expenses.map(e => (e.time || '').split('T')[0]).filter(Boolean))].sort().reverse();
+      const expenseDates = state.expenses.map(e => (e.time || '').split('T')[0]).filter(Boolean);
+
+    const logDates = Object.values(currentLogs || {}).map(log => {
+      const d = new Date(log.ts);
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    });
+
+    const uniqueDates = [...new Set([...expenseDates, ...logDates])].sort().reverse();
       let dateHTML = `<option value="all" class="text-gray-800">所有日期</option>`;
       uniqueDates.forEach(d => {
         dateHTML += `<option value="${d}" class="text-gray-800" ${state.filterDate === d ? 'selected' : ''}>${d}</option>`;
@@ -990,7 +1296,7 @@
       if (tab === 'settle') calculateSettle();
     }
 
-    function saveExpense() {
+    async function saveExpense() {
       const amount = parseFloat(document.getElementById('exp-amount').value);
       if (!amount || state.selectedSplit.length === 0) return;
 
@@ -1009,7 +1315,7 @@
       if (state.editingId) {
         const idx = state.expenses.findIndex(e => e.id === state.editingId);
         if (idx !== -1) {
-          const oldExp = state.expenses[idx];
+          const oldExp = { ...state.expenses[idx] };
 
           if (oldExp.payer === 'pool') {
             addPoolBalance(oldExp.currency, oldExp.amount);
@@ -1020,28 +1326,62 @@
           if (data.payer === 'pool') {
             addPoolBalance(data.currency, -data.amount);
           }
+
+          await addLog({
+            type: 'expense_edit',
+            text: `修改支出（${data.title}）`,
+            undoable: true,
+            undoAction: {
+              type: 'restore_expense',
+              payload: oldExp
+            }
+          });
         }
       } else {
         state.expenses.push(data);
+
         if (data.payer === 'pool') {
           addPoolBalance(data.currency, -data.amount);
         }
+
+        await addLog({
+          type: 'expense_add',
+          text: `新增支出（${data.title}）`,
+          undoable: true,
+          undoAction: {
+            type: 'delete_expense',
+            targetId: data.id
+          }
+        });
       }
 
       renderAll();
       closeModal(null, 'expenseModal');
       scheduleSync();
     }
-
-    function deleteExpense() {
+    
+    async function deleteExpense() {
       if (!state.editingId) return;
 
       const target = state.expenses.find(e => e.id === state.editingId);
-      if (target && target.payer === 'pool') {
+      if (!target) return;
+
+      if (target.payer === 'pool') {
         addPoolBalance(target.currency, target.amount);
       }
 
       state.expenses = state.expenses.filter(e => e.id !== state.editingId);
+
+      await addLog({
+        type: 'expense_delete',
+        text: `刪除支出（${target.title}）`,
+        undoable: true,
+        undoAction: {
+          type: 'restore_expense',
+          payload: target
+        }
+      });
+
       renderAll();
       closeModal(null, 'expenseModal');
       scheduleSync();
@@ -1255,6 +1595,8 @@
     window.calculateSettle = calculateSettle;
     window.handleRoomClick = handleRoomClick;
     window.refreshPoolModalDisplay = refreshPoolModalDisplay;
+    window.undoLogAction = undoLogAction;
+    window.setMyProfile = setMyProfile;
 
     window.onload = async () => {
       renderMainCats();
