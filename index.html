@@ -1306,7 +1306,7 @@
           jobId: null,
           draftId: null,
           result: null,
-          error: '收據辨識流程啟動失敗'
+          error: err?.message || '收據辨識流程啟動失敗'
         };
         updateOCRStatusUI();
       }
