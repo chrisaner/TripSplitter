@@ -313,6 +313,8 @@
     const auth = getAuth(app);
     const db = getDatabase(app);
 
+    const DEBUG_MODE = false; // 上線改 false
+
     const SUPPORTED_CURRENCIES = ['TWD', 'JPY', 'KRW', 'USD', 'EUR', 'CNY'];
 
     let roomUnsubscribeRef = null;
@@ -1437,30 +1439,32 @@
     }
 
 
-    async function mockOCRSuccess() {
-      if (!state.ocr?.jobId) return;
+    if (DEBUG_MODE) {
+      window.mockOCRSuccess = async function () {
+        if (!state.ocr?.jobId) return;
 
-      const fakeResult = {
-        amount: 500,
-        currency: 'JPY',
-        confidence: 0.91,
-        rawText: '合計 ¥500',
-        candidates: [
-          { amount: 500, currency: 'JPY', label: '合計' },
-          { amount: 455, currency: 'JPY', label: '小計' }
-        ]
+        const fakeResult = {
+          amount: 500,
+          currency: 'JPY',
+          confidence: 0.91,
+          rawText: '合計 ¥500',
+          candidates: [
+            { amount: 500, currency: 'JPY', label: '合計' },
+            { amount: 455, currency: 'JPY', label: '小計' }
+          ]
+        };
+
+        await set(ref(db, `ocrJobs/${state.ocr.jobId}`), {
+          roomId: currentRoomId,
+          draftId: state.ocr.draftId,
+          imagePath: `receipts/${currentRoomId}/${state.ocr.draftId}.jpg`,
+          status: 'done',
+          createdAt: Date.now(),
+          createdBy: currentUserUid,
+          result: fakeResult,
+          error: null
+        });
       };
-
-      await set(ref(db, `ocrJobs/${state.ocr.jobId}`), {
-        roomId: currentRoomId,
-        draftId: state.ocr.draftId,
-        imagePath: `receipts/${currentRoomId}/${state.ocr.draftId}.jpg`,
-        status: 'done',
-        createdAt: Date.now(),
-        createdBy: currentUserUid,
-        result: fakeResult,
-        error: null
-      });
     }
     
     window.mockOCRSuccess = mockOCRSuccess;
