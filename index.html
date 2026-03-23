@@ -297,7 +297,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
     import { getDatabase, ref, set, onValue, off, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-
+    import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
     const firebaseConfig = {
       apiKey: "AIzaSyATPWfxHpNCqBNaf2q1mAsv_YWfnfNOnyw",
       authDomain: "tripsplitter-d0e56.firebaseapp.com",
@@ -312,7 +312,8 @@
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getDatabase(app);
-
+    const storage = getStorage(app);
+    
     const DEBUG_MODE = false; // 上線改 false
 
     const SUPPORTED_CURRENCIES = ['TWD', 'JPY', 'KRW', 'USD', 'EUR', 'CNY'];
@@ -1281,14 +1282,23 @@
         };
         updateOCRStatusUI();
 
-        // 這裡先保留 imagePath 佔位，之後接 Firebase Storage 時再用實際上傳結果替換
-        const imagePath = `receipts/${currentRoomId}/${draftId}.jpg`;
+        const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+        const imagePath = `receipts/${currentRoomId}/${draftId}.${ext}`;
+        const sRef = storageRef(storage, imagePath);
 
-        // 先建立 OCR Job
+        // 真的上傳到 Firebase Storage
+        await uploadBytes(sRef, file, {
+          contentType: file.type || 'image/jpeg'
+        });
+
+        const downloadURL = await getDownloadURL(sRef);
+
+        // 建立 OCR Job
         await set(ref(db, `ocrJobs/${jobId}`), {
           roomId: currentRoomId,
           draftId,
           imagePath,
+          downloadURL,
           status: 'pending',
           createdAt: Date.now(),
           createdBy: currentUserUid,
