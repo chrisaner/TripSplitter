@@ -192,6 +192,10 @@
               </div>
               <input type="file" id="receipt-input" accept="image/*" class="hidden" onchange="handleReceiptFile(this)" />
             </div>
+            <div id="ocr-status-box" class="hidden bg-indigo-50 text-[#3b3f8c] rounded-2xl px-4 py-3 text-sm font-bold mx-1">
+              <div id="ocr-status-text">正在辨識收據...</div>
+              <div id="ocr-candidates" class="mt-2 space-y-2"></div>
+            </div>
           </div>
 
           <div class="space-y-3">
@@ -350,7 +354,14 @@
       filterDate: 'all',
       tempReceipt: null,
       tempEmoji: '👤',
-      editingMemberId: null
+      editingMemberId: null,
+      ocr: {
+      status: 'idle',
+      jobId: null,
+      draftId: null,
+      result: null,
+      error: null
+      }
     };
 
     let state = loadLocalState();
@@ -1086,7 +1097,7 @@
         receiptContainer.style.display = 'none';
         delBtn.classList.add('hidden');
       }
-
+      resetOCRState();
       renderExpSelectors();
       openModal('expenseModal');
     }
@@ -1127,15 +1138,19 @@
       document.getElementById('receipt-input').click();
     }
 
-    function handleReceiptFile(input) {
+    async function handleReceiptFile(input) {
       if (input.files && input.files[0]) {
+        const file = input.files[0];
+
         const reader = new FileReader();
-        reader.onload = (e) => {
+        reader.onload = async (e) => {
           state.tempReceipt = e.target.result;
           document.getElementById('receipt-image').src = state.tempReceipt;
           document.getElementById('receipt-preview-container').style.display = 'block';
+
+          await uploadReceiptAndStartOCR(file);
         };
-        reader.readAsDataURL(input.files[0]);
+        reader.readAsDataURL(file);
       }
     }
 
@@ -1143,6 +1158,7 @@
       state.tempReceipt = null;
       document.getElementById('receipt-preview-container').style.display = 'none';
       document.getElementById('receipt-input').value = '';
+      resetOCRState();
     }
 
     function viewFullReceipt() {
@@ -1150,6 +1166,196 @@
         document.getElementById('full-receipt-display').src = state.tempReceipt;
         openModal('imageViewerModal');
       }
+    }
+
+
+    function resetOCRState() {
+      state.ocr = {
+        status: 'idle',
+        jobId: null,
+        draftId: null,
+        result: null,
+        error: null
+      };
+      updateOCRStatusUI();
+    }
+
+    function updateOCRStatusUI() {
+      const box = document.getElementById('ocr-status-box');
+      const text = document.getElementById('ocr-status-text');
+      const candidates = document.getElementById('ocr-candidates');
+
+      if (!box || !text || !candidates) return;
+
+      const ocr = state.ocr || {};
+
+      if (!ocr.status || ocr.status === 'idle') {
+        box.classList.add('hidden');
+        text.innerText = '';
+        candidates.innerHTML = '';
+        return;
+      }
+
+      box.classList.remove('hidden');
+      candidates.innerHTML = '';
+
+      if (ocr.status === 'uploading') {
+        text.innerText = '📤 正在上傳收據...';
+        return;
+      }
+
+      if (ocr.status === 'processing') {
+        text.innerText = '🔍 正在辨識收據金額...';
+        return;
+      }
+
+      if (ocr.status === 'done') {
+        const result = ocr.result || {};
+        const amountText = result.amount != null ? result.amount : '-';
+        const currencyText = result.currency || '';
+        text.innerText = `✅ 已辨識：${amountText} ${currencyText}`;
+
+        if (Array.isArray(result.candidates) && result.candidates.length > 0) {
+          candidates.innerHTML = result.candidates.map((c, idx) => `
+            <button onclick="applyOCRCandidate(${idx})"
+              class="block w-full text-left bg-white rounded-xl px-3 py-2 border border-indigo-100 active:scale-[0.98] transition">
+              ${c.amount ?? '-'} ${c.currency ?? ''} ${c.label ? `（${c.label}）` : ''}
+            </button>
+          `).join('');
+        }
+
+        return;
+      }
+
+      if (ocr.status === 'error') {
+        text.innerText = `⚠️ ${ocr.error || '無法自動辨識，請手動輸入'}`;
+        return;
+      }
+    }
+
+    function applyOCRResult(result) {
+      if (!result) return;
+
+      if (result.amount != null && !Number.isNaN(Number(result.amount))) {
+        document.getElementById('exp-amount').value = result.amount;
+      }
+
+      if (result.currency && SUPPORTED_CURRENCIES.includes(result.currency)) {
+        document.getElementById('exp-currency').value = result.currency;
+      }
+    }
+
+    function applyOCRCandidate(index) {
+      const candidates = state.ocr?.result?.candidates || [];
+      const selected = candidates[index];
+      if (!selected) return;
+
+      applyOCRResult(selected);
+    }
+
+    async function uploadReceiptAndStartOCR(file) {
+      if (!currentRoomId || !currentUserUid) {
+        state.ocr = {
+          status: 'error',
+          jobId: null,
+          draftId: null,
+          result: null,
+          error: '尚未加入房間，無法啟動收據辨識'
+        };
+        updateOCRStatusUI();
+        return;
+      }
+
+      try {
+        const draftId = 'draft_' + Date.now();
+        const jobId = 'job_' + crypto.randomUUID();
+
+        state.ocr = {
+          status: 'uploading',
+          jobId,
+          draftId,
+          result: null,
+          error: null
+        };
+        updateOCRStatusUI();
+
+        // 這裡先保留 imagePath 佔位，之後接 Firebase Storage 時再用實際上傳結果替換
+        const imagePath = `receipts/${currentRoomId}/${draftId}.jpg`;
+
+        // 先建立 OCR Job
+        await set(ref(db, `ocrJobs/${jobId}`), {
+          roomId: currentRoomId,
+          draftId,
+          imagePath,
+          status: 'pending',
+          createdAt: Date.now(),
+          createdBy: currentUserUid,
+          result: null,
+          error: null
+        });
+
+        state.ocr.status = 'processing';
+        updateOCRStatusUI();
+
+        watchOCRJob(jobId);
+
+      } catch (err) {
+        console.error('uploadReceiptAndStartOCR failed:', err);
+        state.ocr = {
+          status: 'error',
+          jobId: null,
+          draftId: null,
+          result: null,
+          error: '收據辨識流程啟動失敗'
+        };
+        updateOCRStatusUI();
+      }
+    }
+
+    function watchOCRJob(jobId) {
+      const jobRef = ref(db, `ocrJobs/${jobId}`);
+
+      onValue(jobRef, (snapshot) => {
+        const job = snapshot.val();
+        if (!job) return;
+
+        if (job.status === 'pending' || job.status === 'processing') {
+          state.ocr.status = 'processing';
+          updateOCRStatusUI();
+          return;
+        }
+
+        if (job.status === 'done') {
+          state.ocr = {
+            ...state.ocr,
+            status: 'done',
+            result: job.result || null,
+            error: null
+          };
+
+          updateOCRStatusUI();
+          applyOCRResult(job.result);
+          return;
+        }
+
+        if (job.status === 'error') {
+          state.ocr = {
+            ...state.ocr,
+            status: 'error',
+            result: null,
+            error: job.error || '無法辨識收據'
+          };
+          updateOCRStatusUI();
+        }
+      }, (error) => {
+        console.error('OCR watch failed:', error);
+        state.ocr = {
+          ...state.ocr,
+          status: 'error',
+          error: '無法監聽辨識結果'
+        };
+        updateOCRStatusUI();
+      });
     }
 
     function calculateSettle() {
@@ -1230,6 +1436,34 @@
       }
     }
 
+
+    async function mockOCRSuccess() {
+      if (!state.ocr?.jobId) return;
+
+      const fakeResult = {
+        amount: 500,
+        currency: 'JPY',
+        confidence: 0.91,
+        rawText: '合計 ¥500',
+        candidates: [
+          { amount: 500, currency: 'JPY', label: '合計' },
+          { amount: 455, currency: 'JPY', label: '小計' }
+        ]
+      };
+
+      await set(ref(db, `ocrJobs/${state.ocr.jobId}`), {
+        roomId: currentRoomId,
+        draftId: state.ocr.draftId,
+        imagePath: `receipts/${currentRoomId}/${state.ocr.draftId}.jpg`,
+        status: 'done',
+        createdAt: Date.now(),
+        createdBy: currentUserUid,
+        result: fakeResult,
+        error: null
+      });
+    }
+    
+    window.mockOCRSuccess = mockOCRSuccess;
     window.openModal = openModal;
     window.closeModal = closeModal;
     window.openMemberModal = openMemberModal;
@@ -1255,6 +1489,9 @@
     window.calculateSettle = calculateSettle;
     window.handleRoomClick = handleRoomClick;
     window.refreshPoolModalDisplay = refreshPoolModalDisplay;
+    window.applyOCRCandidate = applyOCRCandidate;
+    window.resetOCRState = resetOCRState;
+    window.updateOCRStatusUI = updateOCRStatusUI;
 
     window.onload = async () => {
       renderMainCats();
