@@ -24,6 +24,9 @@ export async function initFirebaseAuth() {
   try {
     const cred = await signInAnonymously(auth);
     currentUserUid = cred.user.uid;
+    
+    // ⭐ 登入成功後，更新 UI 同步圖示 (若已有 currentRoomId 就帶入)
+    updateSyncUI(Boolean(currentRoomId), currentRoomId || '');
     return currentUserUid;
   } catch (error) {
     reportError(error, {
@@ -31,6 +34,7 @@ export async function initFirebaseAuth() {
       level: 'error',
       userMessage: 'Firebase 匿名登入失敗'
     });
+    updateSyncUI(false);
     return null;
   }
 }
@@ -38,7 +42,7 @@ export async function initFirebaseAuth() {
 export async function handleRoomJoinPrompt() {
   try {
     if (!currentUserUid) {
-      showToast('Firebase 尚未完成初始化', 'warn');
+      showToast('Firebase 尚未完成初始化，請稍後再試', 'warn');
       return;
     }
 
@@ -79,7 +83,11 @@ export async function handleRoomJoinPrompt() {
 }
 
 export async function joinRoom(roomId) {
-  if (!currentUserUid) return;
+  // ⭐ 若 UID 未準備好，確保 UI 設定為未同步狀態後退出
+  if (!currentUserUid) {
+    updateSyncUI(false);
+    return;
+  }
 
   if (roomUnsubscribeRef) {
     off(roomUnsubscribeRef);
@@ -126,7 +134,11 @@ export async function joinRoom(roomId) {
     (snapshot) => {
       try {
         const data = snapshot.val();
-        if (!data || !data.state) return;
+        if (!data || !data.state) {
+          // ⭐ 就算資料庫內該路徑為空，只要監聽已成功啟動，就應更新 UI 狀態為 synced
+          updateSyncUI(true, roomId);
+          return;
+        }
 
         const incoming = mergeState(data.state);
         const incomingHash = hashState(incoming);
