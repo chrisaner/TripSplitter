@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>TripSplitter Firebase Sync</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="./css/style.css" />
+</head>
+<body>
+  <div class="app-container shadow-2xl">
+    <header class="p-4 flex justify-between items-center sticky top-0 bg-white/80 backdrop-blur-md z-40 border-b border-gray-50">
+      <div class="flex items-center gap-2">
+        <div class="w-10 h-10 bg-[#5d5fef] rounded-2xl flex items-center justify-center text-white shadow-lg">
+          <i class="fas fa-wallet"></i>
+        </div>
+        <div>
+          <h1 class="text-xl font-black text-[#3b3f8c]">TripSplitter</h1>
+          <div id="cloud-sync-indicator" class="flex items-center mt-0.5">
+            <span id="sync-dot" class="w-2 h-2 rounded-full bg-gray-300 mr-1.5"></span>
+            <span id="sync-text" class="text-[8px] font-black text-gray-400 uppercase tracking-tighter">本地模式</span>
+          </div>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="auth-btn" class="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 transition-colors">
+          <i class="fas fa-cloud"></i>
+        </button>
+        <button id="pool-btn" class="bg-orange-50 px-4 py-2 rounded-2xl border border-orange-100 text-right active:scale-95 transition-transform min-w-[108px]">
+          <p class="text-[8px] font-black text-orange-400 leading-none uppercase tracking-tighter">Pool Balance</p>
+          <p id="pool-display" class="text-sm font-black text-orange-600">0 TWD</p>
+        </button>
+      </div>
+    </header>
+
+    <main class="flex-1 pb-32">
+      <section id="page-activity" class="tab-pane active px-5 pt-2">
+        <div class="bg-[#3b3f8c] rounded-[2.5rem] p-6 text-white shadow-xl mb-6">
+          <p class="text-indigo-200 text-[10px] font-bold mb-1 uppercase tracking-widest">Expenses Overview</p>
+
+          <div id="total-expense-summary" class="space-y-2 mb-6">
+            <div class="currency-summary-card">
+              <p class="text-[9px] font-black text-indigo-200 uppercase tracking-widest mb-1">尚無支出資料</p>
+              <p class="text-xl font-black text-white">0</p>
+            </div>
+          </div>
+
+          <div class="flex gap-2 pt-2 border-t border-white/10">
+            <div class="flex-1 flex flex-col gap-1">
+              <label class="text-[8px] font-black opacity-50 uppercase tracking-widest ml-1">日期範圍</label>
+              <select id="filter-date-select" class="custom-select w-full bg-white/20 text-white rounded-xl px-3 py-2 text-[10px] font-bold outline-none border-none">
+                <option value="all" class="text-gray-800">所有日期</option>
+              </select>
+            </div>
+            <div class="flex-1 flex flex-col gap-1">
+              <label class="text-[8px] font-black opacity-50 uppercase tracking-widest ml-1">支付成員</label>
+              <select id="filter-member-select" class="custom-select w-full bg-white/20 text-white rounded-xl px-3 py-2 text-[10px] font-bold outline-none border-none">
+                <option value="all" class="text-gray-800">所有成員支付</option>
+                <option value="pool" class="text-gray-800">💰 公積金支付</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div id="activity-list" class="space-y-4"></div>
+      </section>
+
+      <section id="page-members" class="tab-pane px-5 pt-4">
+        <div class="flex justify-between items-center mb-6">
+          <h2 class="text-2xl font-black text-[#3b3f8c]">夥伴</h2>
+          <button id="add-member-btn" class="w-12 h-12 bg-indigo-50 text-[#5d5fef] rounded-2xl flex items-center justify-center active:scale-90 transition-transform">
+            <i class="fas fa-plus"></i>
+          </button>
+        </div>
+        <div id="member-list" class="grid grid-cols-1 gap-3"></div>
+      </section>
+
+      <section id="page-settle" class="tab-pane px-5 pt-4">
+        <div class="flex justify-between items-end mb-6">
+          <h2 class="text-2xl font-black text-[#3b3f8c]">結算報告</h2>
+          <div class="flex flex-col items-end gap-1">
+            <p class="text-[8px] font-black text-gray-400 uppercase">付款成員篩選</p>
+            <div class="w-32">
+              <select id="settle-member-filter" class="settle-select w-full bg-indigo-50 text-[#5d5fef] rounded-xl px-3 py-1.5 text-[10px] font-bold outline-none border-none text-center">
+                <option value="all">全部顯示</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div id="settle-currency-groups" class="space-y-8 pb-10"></div>
+      </section>
+    </main>
+
+    <nav class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] bg-white border-t border-gray-100 px-10 py-5 flex justify-between items-center z-50">
+      <button id="nav-activity" class="flex flex-col items-center gap-1 text-[#5d5fef]">
+        <i class="fas fa-history text-xl"></i><span class="text-[10px] font-black">活動</span>
+      </button>
+      <button id="nav-members" class="flex flex-col items-center gap-1 text-gray-300">
+        <i class="fas fa-users text-xl"></i><span class="text-[10px] font-black">成員</span>
+      </button>
+      <div class="relative w-14">
+        <button id="add-expense-btn" class="absolute -top-14 left-1/2 -translate-x-1/2 w-16 h-16 bg-[#5d5fef] text-white rounded-[1.5rem] shadow-2xl flex items-center justify-center border-4 border-white active:scale-90 transition-transform">
+          <i class="fas fa-plus text-2xl"></i>
+        </button>
+      </div>
+      <button id="nav-settle" class="flex flex-col items-center gap-1 text-gray-300">
+        <i class="fas fa-file-invoice-dollar text-xl"></i><span class="text-[10px] font-black">結算</span>
+      </button>
+    </nav>
+
+    <div id="expenseModal" class="modal-overlay">
+      <div class="modal-content p-6">
+        <div class="flex justify-between items-center mb-6">
+          <h3 id="exp-modal-title" class="text-2xl font-black text-[#3b3f8c]">支出</h3>
+          <button id="expense-modal-close-btn"
+            class="w-9 h-9 bg-gray-100 rounded-xl flex items-center justify-center text-gray-400 hover:text-gray-600 active:scale-90 transition">
+            <i class="fas fa-times"></i>
+          </button>
+          <input type="datetime-local" id="exp-time" class="text-[10px] font-black bg-gray-100 px-3 py-1.5 rounded-xl outline-none" />
+        </div>
+        <div class="space-y-6 pb-10">
+          <div class="flex gap-3 overflow-x-auto no-scrollbar py-1" id="main-cats"></div>
+          <div id="sub-cats" class="flex gap-2 overflow-x-auto no-scrollbar py-1"></div>
+
+          <div class="flex gap-3 items-center bg-gray-50 p-5 rounded-3xl border border-gray-100">
+            <select id="exp-currency" class="bg-white px-3 py-2 rounded-xl font-black text-xs">
+              <option value="TWD">TWD 🇹🇼</option>
+              <option value="JPY">JPY 🇯🇵</option>
+              <option value="KRW">KRW 🇰🇷</option>
+              <option value="USD">USD 🇺🇸</option>
+              <option value="EUR">EUR 🇪🇺</option>
+              <option value="CNY">CNY 🇨🇳</option>
+            </select>
+            <input type="number" id="exp-amount" placeholder="0.00" class="flex-1 bg-transparent text-3xl font-black outline-none" />
+          </div>
+
+          <input type="text" id="exp-title" placeholder="備註..." class="w-full bg-gray-50 p-5 rounded-3xl font-black outline-none" />
+
+          <div class="space-y-3">
+            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">收據 / 憑證</p>
+            <div class="flex items-center gap-4 px-1">
+              <button id="trigger-receipt-upload-btn" class="w-24 h-24 bg-gray-50 border-2 border-dashed border-gray-200 rounded-[1.5rem] flex flex-col items-center justify-center text-gray-400 active:scale-95 transition-all">
+                <i class="fas fa-camera text-xl mb-1"></i>
+                <span class="text-[8px] font-black">新增照片</span>
+              </button>
+              <div id="receipt-preview-container">
+                <img id="receipt-image" src="" alt="Receipt" />
+                <div id="remove-receipt-btn" class="remove-receipt" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.5);color:white;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:10px;cursor:pointer;">
+                  <i class="fas fa-times"></i>
+                </div>
+              </div>
+              <input type="file" id="receipt-input" accept="image/*" class="hidden" />
+            </div>
+            <div id="ocr-status-box" class="hidden bg-indigo-50 text-[#3b3f8c] rounded-2xl px-4 py-3 text-sm font-bold mx-1">
+              <div id="ocr-status-text">正在辨識收據...</div>
+              <div id="ocr-candidates" class="mt-2 space-y-2"></div>
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">由誰支付</p>
+            <div id="payer-scroll" class="flex gap-4 overflow-x-auto no-scrollbar py-2"></div>
+          </div>
+
+          <div class="space-y-3">
+            <div class="flex justify-between items-center px-1">
+              <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">分攤成員</p>
+              <button id="split-select-all-btn" class="text-[10px] font-bold text-[#5d5fef]">全選</button>
+            </div>
+            <div id="split-scroll" class="flex flex-wrap gap-4 py-2"></div>
+          </div>
+
+          <div class="pt-4 space-y-3">
+            <button id="save-expense-btn" class="w-full py-5 bg-[#5d5fef] text-white rounded-[2rem] font-black shadow-lg">確認儲存</button>
+            <button id="delete-exp-btn" class="hidden w-full py-3 text-red-400 font-black text-sm">刪除記錄</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="memberModal" class="modal-overlay">
+      <div class="modal-content p-8">
+        <h3 id="member-modal-title" class="text-2xl font-black text-[#3b3f8c]">新增夥伴</h3>
+        <button id="member-modal-close-btn"
+          class="w-9 h-9 bg-gray-100 rounded-xl flex items-center justify-center text-gray-400 hover:text-gray-600 active:scale-90 transition">
+        <i class="fas fa-times"></i>
+        </button>
+        <div id="member-emoji-display" class="w-24 h-24 bg-indigo-50 rounded-[2rem] mx-auto flex items-center justify-center text-5xl mb-6 shadow-inner">👤</div>
+        <div class="grid grid-cols-5 gap-3 mb-8 px-2" id="emoji-picker"></div>
+        <input type="text" id="member-name" placeholder="輸入名稱..." class="w-full bg-gray-50 p-5 rounded-[1.5rem] font-black text-center outline-none mb-6 border border-gray-100 focus:border-indigo-200" />
+        <button id="member-save-btn" class="w-full py-5 bg-[#5d5fef] text-white rounded-[2rem] font-black shadow-lg active:scale-95 transition-transform">確定新增</button>
+      </div>
+    </div>
+
+    <div id="poolModal" class="modal-overlay">
+      <div class="modal-content p-8">
+        <h3 class="text-2xl font-black text-orange-600 mb-2">公積金 Pool</h3>
+        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-6">管理旅費預算</p>
+
+        <div class="bg-orange-50 p-8 rounded-[2.5rem] text-center mb-6">
+          <p class="text-[10px] font-black text-orange-400 uppercase mb-2">目前餘額</p>
+          <div class="flex justify-center mb-3">
+            <select id="pool-currency-select" class="bg-white px-4 py-2 rounded-xl font-black text-sm outline-none">
+              <option value="TWD">TWD 🇹🇼</option>
+              <option value="JPY">JPY 🇯🇵</option>
+              <option value="KRW">KRW 🇰🇷</option>
+              <option value="USD">USD 🇺🇸</option>
+              <option value="EUR">EUR 🇪🇺</option>
+              <option value="CNY">CNY 🇨🇳</option>
+            </select>
+          </div>
+          <div class="flex items-center justify-center gap-2">
+            <span class="text-3xl font-black text-orange-300">$</span>
+            <span id="pool-modal-display" class="text-5xl font-black text-orange-600">0</span>
+          </div>
+        </div>
+
+        <div class="flex gap-3 mb-6">
+          <input type="number" id="pool-input" placeholder="輸入金額" class="flex-1 bg-gray-50 p-5 rounded-[1.5rem] font-black outline-none border border-gray-100" />
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 mb-6">
+          <button id="pool-add-btn" class="py-5 bg-orange-500 text-white rounded-[1.5rem] font-black shadow-md active:scale-95 transition-transform">儲值進去</button>
+          <button id="pool-set-btn" class="py-5 bg-gray-100 text-gray-400 rounded-[1.5rem] font-black active:scale-95 transition-transform">重設餘額</button>
+        </div>
+
+        <div class="bg-gray-50 rounded-[1.5rem] p-4">
+          <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">全部幣別餘額</p>
+          <div id="pool-balance-list" class="space-y-2"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="imageViewerModal" 
+     class="modal-overlay"  
+     style="z-index: 2000; background: rgba(0,0,0,0.9);">
+
+      <div class="w-full h-full flex items-center justify-center p-4 relative">
+
+          <!-- ⭐ 新增 X 按鈕 -->
+        <button id="image-viewer-close-btn"
+            class="absolute top-6 right-6 w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white text-xl hover:bg-white/30 active:scale-90 transition z-50">
+            <i class="fas fa-times"></i>
+        </button>
+
+        <!-- 圖片 -->
+        <img id="full-receipt-display" 
+             src="" 
+             class="max-w-full max-h-[80vh] rounded-2xl shadow-2xl">
+        </div>
+    </div>
+  </div>
+
+  <script type="module" src="./js/main.js"></script>
+   
+</body>
+</html>

@@ -1,0 +1,19 @@
+import { renderAll, renderMainCats } from '../ui.js';
+import { renderExpenseModal } from './expenseModalUI.js';
+import { getExpenseDraft } from '../state/modalStore.js';
+
+export function renderApp() {
+  renderAll();
+
+  const expenseModal = document.getElementById('expenseModal');
+  const isExpenseModalOpen = expenseModal && expenseModal.style.display === 'flex';
+
+  if (isExpenseModalOpen) {
+    renderExpenseModal();
+  }
+}
+
+export function renderAppBootstrap() {
+  renderMainCats();
+  renderApp();
+}

@@ -1,0 +1,271 @@
+import { state } from './state.js';
+import { escapeHtml } from './utils.js';
+import { buildExpenseSummaryByCurrency, getPoolHeaderText } from './data.js';
+import { calculateSettle } from './app.js';
+
+export function renderMainCats() {
+  const container = document.getElementById('main-cats');
+  if (!container) return;
+
+  container.innerHTML = Object.entries(state.categories).map(([key, data]) => `
+    <button
+      data-action="select-cat"
+      data-cat-key="${key}"
+      class="category-btn flex-shrink-0 w-16 h-16 bg-gray-50 rounded-[1.5rem] flex flex-col items-center justify-center transition-all ${state.currentCat === key ? 'active' : ''}"
+    >
+      <span class="text-2xl">${data.icon}</span>
+      <span class="text-[9px] font-black mt-1">${data.label}</span>
+    </button>
+  `).join('');
+
+  selectCat(state.currentCat);
+}
+
+export function selectCat(key) {
+  state.currentCat = key;
+  localStorage.setItem('lastCategory', key);
+
+  const subContainer = document.getElementById('sub-cats');
+  if (!subContainer) return;
+
+  subContainer.innerHTML = state.categories[key].subs.map((s) => `
+    <button
+      data-action="select-sub"
+      data-sub="${escapeHtml(s)}"
+      class="sub-btn px-4 py-2 bg-gray-50 rounded-xl text-[10px] font-black text-gray-400 ${s === state.currentSub ? 'active' : ''}"
+    >
+      ${escapeHtml(s)}
+    </button>
+  `).join('');
+}
+
+export function selectSub(s) {
+  state.currentSub = s;
+
+  const titleInput = document.getElementById('exp-title');
+  if (!state.editingId && titleInput) {
+    titleInput.value = s;
+  }
+
+  renderMainCats();
+}
+
+export function renderExpenseSummary() {
+  const container = document.getElementById('total-expense-summary');
+  const summary = buildExpenseSummaryByCurrency();
+
+  if (!container) return;
+
+  if (summary.length === 0) {
+    container.innerHTML = `
+      <div class="currency-summary-card">
+        <p class="text-[9px] font-black text-indigo-200 uppercase tracking-widest mb-1">尚無支出資料</p>
+        <p class="text-xl font-black text-white">0</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = summary.map((item) => `
+    <div class="currency-summary-card flex items-center justify-between">
+      <div>
+        <p class="text-[9px] font-black text-indigo-200 uppercase tracking-widest mb-1">總支出</p>
+        <p class="text-xl font-black text-white">${item.amount.toLocaleString()}</p>
+      </div>
+      <div class="text-right">
+        <p class="text-sm font-black text-indigo-100">${item.currency}</p>
+      </div>
+    </div>
+  `).join('');
+}
+
+export function updateFiltersUI() {
+  const dateSelect = document.getElementById('filter-date-select');
+  const memberSelect = document.getElementById('filter-member-select');
+  const settleFilter = document.getElementById('settle-member-filter');
+
+  const uniqueDates = [...new Set(state.expenses.map((e) => (e.time || '').split('T')[0]).filter(Boolean))].sort().reverse();
+
+  if (dateSelect) {
+    dateSelect.innerHTML = `
+      <option value="all" class="text-gray-800">所有日期</option>
+      ${uniqueDates.map((d) => `<option value="${d}" ${state.filterDate === d ? 'selected' : ''} class="text-gray-800">${d}</option>`).join('')}
+    `;
+  }
+
+  if (memberSelect) {
+    memberSelect.innerHTML = `
+      <option value="all" class="text-gray-800">所有成員支付</option>
+      <option value="pool" class="text-gray-800" ${state.filterMemberId === 'pool' ? 'selected' : ''}>💰 公積金支付</option>
+      ${state.members.map((m) => `<option value="${m.id}" ${state.filterMemberId === m.id ? 'selected' : ''} class="text-gray-800">${m.emoji} ${escapeHtml(m.name)} 支付</option>`).join('')}
+    `;
+  }
+
+  if (settleFilter) {
+    settleFilter.innerHTML = `
+      <option value="all">全部顯示</option>
+      ${state.members.map((m) => `<option value="${m.id}">${escapeHtml(m.name)}</option>`).join('')}
+    `;
+  }
+}
+
+export function renderMembers() {
+  const list = document.getElementById('member-list');
+  if (!list) return;
+
+  list.innerHTML = state.members.map((m) => `
+    <div class="bg-white p-5 rounded-[2rem] border border-gray-50 flex items-center justify-between">
+      <div class="flex items-center gap-4">
+        <div class="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center text-2xl">${m.emoji}</div>
+        <p class="font-black text-[#3b3f8c]">${escapeHtml(m.name)}</p>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button
+          data-action="edit-member"
+          data-member-id="${m.id}"
+          class="text-gray-300 p-2 active:text-[#5d5fef] transition-colors"
+        >
+          <i class="fas fa-pen text-xs"></i>
+        </button>
+        <button
+          data-action="delete-member"
+          data-member-id="${m.id}"
+          class="text-red-100 p-2 active:text-red-400 transition-colors"
+        >
+          <i class="fas fa-trash text-xs"></i>
+        </button>
+      </div>
+    </div>
+  `).join('');
+}
+
+export function renderActivity() {
+  const container = document.getElementById('activity-list');
+  if (!container) return;
+
+  let list = [...state.expenses].sort((a, b) => new Date(b.time) - new Date(a.time));
+
+  if (state.filterDate !== 'all') {
+    list = list.filter((e) => e.time && e.time.startsWith(state.filterDate));
+  }
+
+  if (state.filterMemberId !== 'all') {
+    list = list.filter((e) => e.payer === state.filterMemberId);
+  }
+
+  if (list.length === 0) {
+    container.innerHTML = `<div class="py-20 text-center opacity-20 font-bold">尚無符合條件的活動</div>`;
+    return;
+  }
+
+  container.innerHTML = list.map((e) => {
+    const pName = e.payer === 'pool' ? '💰 Pool' : state.members.find((m) => m.id === e.payer)?.name || '未知';
+    const hasReceipt = e.receipt ? `<i class="fas fa-image text-[#5d5fef] text-[10px] ml-1"></i>` : '';
+
+    return `
+      <div
+        data-action="edit-expense"
+        data-expense-id="${e.id}"
+        class="bg-white p-5 rounded-[2rem] border border-gray-50 shadow-sm flex items-center justify-between active:scale-[0.98] transition-transform cursor-pointer"
+      >
+        <div class="flex items-center gap-4">
+          <div class="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-xl">${state.categories[e.cat]?.icon || '💸'}</div>
+          <div>
+            <p class="font-black text-[#3b3f8c] text-sm">${escapeHtml(e.title)}${hasReceipt}</p>
+            <div class="flex items-center gap-1.5 mt-0.5">
+              <p class="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">${(e.time || '').split('T')[0] || ''}</p>
+              <span class="w-1 h-1 bg-gray-200 rounded-full"></span>
+              <p class="text-[9px] font-bold text-indigo-400 uppercase tracking-tighter">${escapeHtml(pName)} 支付</p>
+            </div>
+          </div>
+        </div>
+        <p class="font-black text-[#5d5fef]">${Number(e.amount || 0).toLocaleString()} <span class="text-[8px] opacity-60">${e.currency || ''}</span></p>
+      </div>
+    `;
+  }).join('');
+}
+
+export function renderExpSelectors() {
+  const payerContainer = document.getElementById('payer-scroll');
+  const splitContainer = document.getElementById('split-scroll');
+  const input = document.getElementById('exp-title');
+  if (input && state.currentSub) {
+	input.value = state.currentSub;
+  }
+
+  if (payerContainer) {
+    let payersHTML = `
+      <div
+        data-action="set-payer"
+        data-payer-id="pool"
+        class="avatar-card flex-shrink-0 w-16 h-20 rounded-2xl flex flex-col items-center justify-center gap-2 cursor-pointer bg-gray-50 ${state.selectedPayer === 'pool' ? 'selected' : ''}"
+      >
+        <span class="text-xl">💰</span>
+        <span class="text-[8px] font-black uppercase">Pool</span>
+      </div>
+    `;
+
+    payersHTML += state.members.map((m) => `
+      <div
+        data-action="set-payer"
+        data-payer-id="${m.id}"
+        class="avatar-card flex-shrink-0 w-16 h-20 rounded-2xl flex flex-col items-center justify-center gap-2 cursor-pointer bg-gray-50 ${state.selectedPayer === m.id ? 'selected' : ''}"
+      >
+        <span class="text-xl">${m.emoji}</span>
+        <span class="text-[8px] font-black">${escapeHtml(m.name)}</span>
+      </div>
+    `).join('');
+
+    payerContainer.innerHTML = payersHTML;
+  }
+
+  if (splitContainer) {
+    splitContainer.innerHTML = state.members.map((m) => `
+      <div
+        data-action="toggle-split"
+        data-member-id="${m.id}"
+        class="avatar-card relative w-16 h-20 rounded-2xl flex flex-col items-center justify-center gap-2 cursor-pointer bg-gray-50 ${state.selectedSplit.includes(m.id) ? 'selected' : ''}"
+      >
+        <span class="text-xl">${m.emoji}</span>
+        <span class="text-[8px] font-black">${escapeHtml(m.name)}</span>
+        <div class="check-mark absolute -top-1 -right-1 w-5 h-5 bg-[#5d5fef] text-white rounded-full hidden items-center justify-center border-2 border-white">
+          <i class="fas fa-check text-[8px]"></i>
+        </div>
+      </div>
+    `).join('');
+  }
+}
+
+export function updateHeader() {
+  const el = document.getElementById('pool-display');
+  if (el) el.innerText = getPoolHeaderText();
+}
+
+export function renderAll() {
+  updateFiltersUI();
+  renderExpenseSummary();
+  renderActivity();
+  renderMembers();
+  updateHeader();
+
+  if (document.getElementById('page-settle')?.classList.contains('active')) {
+    calculateSettle();
+  }
+}
+
+export function updateSyncUI(isSynced = false, roomId = '') {
+  const dot = document.getElementById('sync-dot');
+  const text = document.getElementById('sync-text');
+
+  if (!dot || !text) return;
+
+  if (!isSynced) {
+    dot.className = 'w-2 h-2 rounded-full bg-gray-300 mr-1.5';
+    text.innerText = '本地模式';
+    return;
+  }
+
+  dot.className = 'w-2 h-2 rounded-full bg-green-400 mr-1.5';
+  text.innerText = roomId ? `已同步：${roomId}` : '已同步';
+}

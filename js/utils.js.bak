@@ -1,0 +1,44 @@
+export function sanitizeRoomId(raw) {
+  return (raw || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-_]/g, "-")
+    .replace(/-+/g, "-")
+    .slice(0, 60);
+}
+
+export function getShareUrl(roomId) {
+  const url = new URL(window.location.href);
+  url.searchParams.set("room", roomId);
+  return url.toString();
+}
+
+export function escapeHtml(str) {
+  return String(str ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+export function hashState(obj) {
+  return JSON.stringify({
+    poolBalances: obj.poolBalances,
+    members: obj.members,
+    expenses: obj.expenses
+  });
+}
+
+/**
+ * 取得指定時間或當前的本地時間 ISO 字串 (YYYY-MM-DDTHH:mm)
+ * 解決 datetime-local input 轉成 UTC+0 導致少 8 小時的問題
+ * @param {Date|number|string} [dateInput] - 可選，帶入既有日期/毫秒數/日期字串
+ * @returns {string} 符合 datetime-local 格式的 UTC+8 時間字串
+ */
+export function getLocalISOString(dateInput) {
+  const d = dateInput ? new Date(dateInput) : new Date();
+  // 透過 getTimezoneOffset 計算並校正為本地時區 (UTC+8)
+  const localDate = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  return localDate.toISOString().slice(0, 16);
+}

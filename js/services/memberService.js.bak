@@ -1,0 +1,87 @@
+import { getState, commit } from '../state/store.js';
+import { addPoolBalance } from '../data.js';
+
+export function setPayerSelection(id) {
+  commit((draft) => {
+    draft.selectedPayer = id;
+  }, { persist: false });
+}
+
+export function toggleSplitSelection(id) {
+  commit((draft) => {
+    if (draft.selectedSplit.includes(id)) {
+      draft.selectedSplit = draft.selectedSplit.filter((m) => m !== id);
+    } else {
+      draft.selectedSplit.push(id);
+    }
+  }, { persist: false });
+}
+
+export function selectAllSplitMembers(enabled = true) {
+  commit((draft) => {
+    draft.selectedSplit = enabled ? draft.members.map((m) => m.id) : [];
+  }, { persist: false });
+}
+
+export function saveCurrentExpense(formData) {
+  const current = getState();
+
+  if (!formData.amount || current.selectedSplit.length === 0) return false;
+
+  commit((draft) => {
+    const data = {
+      id: draft.editingId || Date.now(),
+      cat: draft.currentCat,
+      title: formData.title || draft.currentSub,
+      amount: formData.amount,
+      currency: formData.currency,
+      time: formData.time,
+      payer: draft.selectedPayer,
+      split: [...draft.selectedSplit],
+      receipt: draft.tempReceipt
+    };
+
+    if (draft.editingId) {
+      const idx = draft.expenses.findIndex((e) => e.id === draft.editingId);
+      if (idx !== -1) {
+        const oldExp = draft.expenses[idx];
+
+        if (oldExp.payer === 'pool') {
+          addPoolBalance(oldExp.currency, oldExp.amount);
+        }
+
+        draft.expenses[idx] = data;
+
+        if (data.payer === 'pool') {
+          addPoolBalance(data.currency, -data.amount);
+        }
+      }
+    } else {
+      draft.expenses.push(data);
+
+      if (data.payer === 'pool') {
+        addPoolBalance(data.currency, -data.amount);
+      }
+    }
+  });
+
+  return true;
+}
+
+export function deleteCurrentExpense() {
+  const current = getState();
+  if (!current.editingId) return false;
+
+  commit((draft) => {
+    const target = draft.expenses.find((e) => e.id === draft.editingId);
+
+    if (target && target.payer === 'pool') {
+      addPoolBalance(target.currency, target.amount);
+    }
+
+    draft.expenses = draft.expenses.filter((e) => e.id !== draft.editingId);
+    draft.editingId = null;
+  });
+
+  return true;
+}

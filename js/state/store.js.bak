@@ -1,0 +1,20 @@
+import { state, setState, saveLocalState } from '../state.js';
+
+const listeners = new Set();
+
+export function getState() {
+  return state;
+}
+
+export function subscribe(listener) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+export function commit(updater) {
+  const next = structuredClone(state);
+  updater(next);
+  setState(next);
+  saveLocalState();
+  listeners.forEach((fn) => fn(state));
+}
