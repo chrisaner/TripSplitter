@@ -257,15 +257,23 @@ export function renderAll() {
 export function updateSyncUI(isSynced = false, roomId = '') {
   const dot = document.getElementById('sync-dot');
   const text = document.getElementById('sync-text');
+  const authBtn = document.getElementById('auth-btn'); // 雲朵按鈕
 
   if (!dot || !text) return;
 
   if (!isSynced) {
     dot.className = 'w-2 h-2 rounded-full bg-gray-300 mr-1.5';
     text.innerText = '本地模式';
+    if (authBtn) {
+      authBtn.className = 'w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 transition-colors';
+    }
     return;
   }
 
+  // 已同步狀態
   dot.className = 'w-2 h-2 rounded-full bg-green-400 mr-1.5';
   text.innerText = roomId ? `已同步：${roomId}` : '已同步';
+  if (authBtn) {
+    authBtn.className = 'w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-[#5d5fef] transition-colors';
+  }
 }
