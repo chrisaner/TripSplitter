@@ -18,13 +18,20 @@ window.addEventListener('DOMContentLoaded', async () => {
   });
 
   renderAppBootstrap();
-  updateSyncUI(false);
 
-  await initFirebaseAuth();
+  // 1. 初始化 Firebase 身份驗證
+  const uid = await initFirebaseAuth();
 
+  // 2. 檢查 URL 是否帶有 room 參數
   const params = new URLSearchParams(window.location.search);
   const room = sanitizeRoomId(params.get('room') || '');
-  if (room) {
+
+  if (room && uid) {
+    // 成功加入房間並啟動監聽
     await joinRoom(room);
+    updateSyncUI(true, room);
+  } else {
+    // 未加入房間，維持本地模式
+    updateSyncUI(false);
   }
 });
