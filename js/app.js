@@ -4,6 +4,20 @@ import { renderActivity, renderAll, updateSyncUI } from './ui.js';
 import { scheduleSync } from './services/syncService.js';
 import { reportError } from './services/errorService.js';
 
+/**
+ * 金額格式化輔助函式：
+ * JPY, TWD, KRW 自動取整數
+ * 其他幣別保留至多小數點 1 位
+ */
+function formatSettleAmount(amt, curr) {
+  const noDecimalCurrencies = ['JPY', 'TWD', 'KRW'];
+  if (noDecimalCurrencies.includes(curr)) {
+    return Math.round(amt).toLocaleString();
+  }
+  const rounded = Math.round(amt * 10) / 10;
+  return rounded.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 1 });
+}
+
 export function switchTab(tab) {
   try {
     document.querySelectorAll('.tab-pane').forEach((p) => p.classList.remove('active'));
@@ -165,9 +179,9 @@ export function calculateSettle() {
               </div>
               <div class="text-right">
                 <p class="text-[9px] font-black text-gray-400 uppercase tracking-tighter">
-                  ${(state.members.find((m) => m.id === t.from)?.name || '')} ➜ ${(state.members.find((m) => m.id === t.to)?.name || '')}
+                  ${(state.members.find((m) => m.id === t.from)?.name \vert{}\vert{} '')} ➜${(state.members.find((m) => m.id === t.to)?.name || '')}
                 </p>
-                <p class="font-black text-indigo-500">${t.amt.toFixed(1)} ${curr}</p>
+                <p class="font-black text-indigo-500">${formatSettleAmount(t.amt, curr)}${curr}</p>
               </div>
             </div>
           `).join('')}
