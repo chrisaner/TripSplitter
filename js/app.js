@@ -5,8 +5,8 @@ import { scheduleSync } from './services/syncService.js';
 import { reportError } from './services/errorService.js';
 
 /**
- * 金額格式化輔助函式：
- * JPY, TWD, KRW 自動取整數
+ * 格式化顯示金額：
+ * JPY, TWD, KRW 自動四捨五入取整數並加千分位
  * 其他幣別保留至多小數點 1 位
  */
 function formatSettleAmount(amt, curr) {
@@ -121,7 +121,11 @@ export function calculateSettle() {
         .forEach((e) => {
           if (!e.split || e.split.length === 0) return;
 
-          const share = e.amount / e.split.length;
+          // 計算分攤額並做時區/精度防呆
+          const rawShare = e.amount / e.split.length;
+          const share = ['JPY', 'TWD', 'KRW'].includes(curr)
+            ? Math.round(rawShare)
+            : Math.round(rawShare * 100) / 100;
 
           if (e.payer !== 'pool') {
             balance[e.payer] += e.amount;
@@ -149,7 +153,15 @@ export function calculateSettle() {
       let j = 0;
 
       while (i < d.length && j < c.length) {
-        const amt = Math.min(d[i].amt, c[j].amt);
+        let amt = Math.min(d[i].amt, c[j].amt);
+
+        // 交易金額防呆校正
+        if (['JPY', 'TWD', 'KRW'].includes(curr)) {
+          amt = Math.round(amt);
+        } else {
+          amt = Math.round(amt * 10) / 10;
+        }
+
         transactions.push({ from: d[i].id, to: c[j].id, amt });
         d[i].amt -= amt;
         c[j].amt -= amt;
