@@ -1,11 +1,11 @@
-import { getExpenseDraft, updateExpenseDraft } from '../state/modalStore.js?v=20261022-4';
-import { renderExpenseModal } from '../ui/expenseModalUI.js?v=20261022-4';
-import { state } from '../state.js?v=20261022-4';
-import { db, storage, ref, set, onValue, storageRef, uploadBytes, getDownloadURL } from '../firebase.js?v=20261022-4';
-import { SUPPORTED_CURRENCIES } from '../state.js?v=20261022-4';
-import { openModal } from '../modal.js?v=20261022-4';
-import { getSyncContext } from './syncService.js?v=20261022-4';
-import { reportError, showToast } from './errorService.js?v=20261022-4';
+import { getExpenseDraft, updateExpenseDraft } from '../state/modalStore.js?v=20261022-5';
+import { renderExpenseModal } from '../ui/expenseModalUI.js?v=20261022-5';
+import { state } from '../state.js?v=20261022-5';
+import { db, storage, ref, set, onValue, storageRef, uploadBytes, getDownloadURL } from '../firebase.js?v=20261022-5';
+import { SUPPORTED_CURRENCIES } from '../state.js?v=20261022-5';
+import { openModal } from '../modal.js?v=20261022-5';
+import { getSyncContext } from './syncService.js?v=20261022-5';
+import { reportError, showToast } from './errorService.js?v=20261022-5';
 
 function normalizeCandidateAmount(candidate) {
   const text = `${candidate?.label || ''} ${candidate?.rawText || ''} ${candidate?.displayText || ''} ${candidate?.currencyText || ''}`;

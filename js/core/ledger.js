@@ -53,7 +53,17 @@ export function applyOperation(raw, op) {
   if (op.epoch !== undefined && op.epoch !== state.epoch) fail('房間已還原備份，請採用雲端版本並重新確認帳目');
   const data = op.data;
   let before = null, after = null;
-  if (op.type.startsWith('expense.')) {
+  if (op.type === 'history.delete') {
+    if (!validId(data.id)) fail('異動紀錄 ID 不正確');
+    delete state.history[data.id];
+  } else if (op.type === 'trash.delete') {
+    if (!validId(data.id)) fail('刪除紀錄 ID 不正確');
+    if (state.expenses.some(e=>String(e.id)===String(data.id))) fail('這筆支出已復原，無法移除復原紀錄');
+    const deleted = state.trash.find(e=>String(e.id)===String(data.id));
+    if (deleted && state.tombstones[data.id] !== op.expectedRevision) fail('刪除紀錄已變更，請重新確認');
+    state.trash = state.trash.filter(e=>String(e.id)!==String(data.id));
+    // Keep the deletion barrier: a stale client must not recreate a removed expense.
+  } else if (op.type.startsWith('expense.')) {
     const index = state.expenses.findIndex(e => String(e.id) === String(data.id));
     const old = state.expenses[index];
     before = old ? clone(old) : null;
@@ -128,7 +138,10 @@ export function applyOperation(raw, op) {
     after = { members: state.members.length, expenses: state.expenses.length, poolBalances: clone(state.poolBalances) };
   } else fail('不支援的操作');
   recomputePool(state);
-  state.history[op.id] = { id: op.id, type: op.type, targetId: data.id || op.id, at: op.at || new Date(0).toISOString(), actor: op.actor || {uid:'unknown',name:'未指定操作者'}, before, after };
+  // Housekeeping must not immediately replace a deleted history row with another log.
+  if (!['history.delete','trash.delete'].includes(op.type)) {
+    state.history[op.id] = { id: op.id, type: op.type, targetId: data.id || op.id, at: op.at || new Date(0).toISOString(), actor: op.actor || {uid:'unknown',name:'未指定操作者'}, before, after };
+  }
   state.revision++; state.appliedOps[op.id] = true;
   return state;
 }

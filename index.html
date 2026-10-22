@@ -6,7 +6,7 @@
   <title>TripSplitter Firebase Sync</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/style.css?v=20261022-4" />
+  <link rel="stylesheet" href="./css/style.css?v=20261022-5" />
 </head>
 <body>
   <div class="app-container shadow-2xl">
@@ -112,8 +112,8 @@
           <p id="restore-preview" role="status" class="empty-note">先選擇檔案預覽，確認後才會還原。</p>
           <button id="restore-backup" class="management-button" disabled>確認還原備份</button>
         </div>
-        <div><h3>刪除復原</h3><div id="trash-list" class="space-y-3"></div></div>
-        <div><h3>異動紀錄</h3><div id="audit-list" class="space-y-3"></div></div>
+        <div><h3>刪除復原</h3><div id="trash-list" class="space-y-3"></div><div id="trash-pagination"></div></div>
+        <div><h3>異動紀錄</h3><div id="audit-list" class="space-y-3"></div><div id="audit-pagination"></div></div>
       </section>
     </main>
 
@@ -288,7 +288,7 @@
     </div>
   </div>
 
-  <script type="module" src="./js/main.js?v=20261022-4"></script>
+  <script type="module" src="./js/main.js?v=20261022-5"></script>
   <div
   id="global-toast"
   class="hidden fixed top-4 left-1/2 -translate-x-1/2 z-[9999] px-4 py-3 rounded-2xl bg-[#3b3f8c] text-white font-bold shadow-xl"

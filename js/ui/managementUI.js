@@ -1,12 +1,19 @@
-import { state } from '../state.js?v=20261022-4';
-import { escapeHtml } from '../utils.js?v=20261022-4';
-import { money } from '../core/ledger.js?v=20261022-4';
-import { createBackup, parseBackup, exportCsv } from '../core/backup.js?v=20261022-4';
-import { getSyncContext, pendingOperations, dispatchOperation, discardPending } from '../services/syncService.js?v=20261022-4';
-import { showToast } from '../services/errorService.js?v=20261022-4';
-import { switchTab } from '../app.js?v=20261022-4';
+import { state } from '../state.js?v=20261022-5';
+import { escapeHtml } from '../utils.js?v=20261022-5';
+import { money } from '../core/ledger.js?v=20261022-5';
+import { createBackup, parseBackup, exportCsv } from '../core/backup.js?v=20261022-5';
+import { getSyncContext, pendingOperations, dispatchOperation, discardPending } from '../services/syncService.js?v=20261022-5';
+import { showToast } from '../services/errorService.js?v=20261022-5';
+import { switchTab } from '../app.js?v=20261022-5';
+import { recordPage, HISTORY_PAGE_SIZE, TRASH_PAGE_SIZE } from '../core/recordPages.js?v=20261022-5';
 
 let selectedBackup = null;
+let historyPage = 0, trashPage = 0, pageRoom = null;
+function pager(data, kind, size) {
+  if (!data.total) return '';
+  const name = kind === 'history' ? '異動紀錄' : '刪除復原';
+  return `<div class="record-pager"><p class="empty-note">第 ${data.page+1} / ${data.pages} 頁 · 每頁最多 ${size} 項 · 共 ${data.total} 項</p><div class="flex gap-2"><button class="management-button" data-${kind}-page="-1" aria-label="${name}上一頁" ${data.page===0?'disabled':''}>上一頁</button><button class="management-button" data-${kind}-page="1" aria-label="${name}下一頁" ${data.page===data.pages-1?'disabled':''}>下一頁</button></div></div>`;
+}
 const label = type => ({ 'expense.save':'儲存支出', 'expense.delete':'刪除支出', 'expense.restore':'復原支出', 'member.save':'儲存成員', 'member.archive':'變更成員啟用狀態', 'pool.change':'公積金異動', 'backup.restore':'還原備份' })[type] || type;
 function describe(entry, currency) {
   if (!entry) return '無';
@@ -30,16 +37,25 @@ export function downloadBackup(prefix = '') {
 export function renderManagement() {
   const actor = document.getElementById('actor-select');
   const room = getSyncContext().currentRoomId || 'local';
+  if (room !== pageRoom) { historyPage = 0; trashPage = 0; pageRoom = room; }
   if (actor) {
     const selected = localStorage.getItem(`tripSplitterActor:${room}`) || '';
     actor.innerHTML = '<option value="">未指定（仍記錄裝置識別）</option>' + state.members.map(m=>`<option value="${escapeHtml(m.name)}">${escapeHtml(m.name)}${m.archived?'（已停用）':''}</option>`).join('');
     actor.value = selected;
   }
   const history = document.getElementById('audit-list');
-  if (history) history.innerHTML = Object.values(state.history || {}).sort((a,b)=>String(b.at).localeCompare(String(a.at))).map(h=>`
-    <details class="management-card"><summary><strong>${escapeHtml(label(h.type))} ${escapeHtml(h.after?.title || h.before?.title || h.after?.name || '')}</strong> · ${escapeHtml(h.actor?.name || '未指定操作者')}<small>${escapeHtml(h.at ? new Date(h.at).toLocaleString('zh-TW') : '')} · 裝置 ${escapeHtml((h.actor?.uid || '').slice(-8))}</small></summary><div class="audit-detail"><strong>變更前</strong><p>${escapeHtml(describe(h.before,h.after?.currency))}</p><strong>變更後</strong><p>${escapeHtml(describe(h.after,h.after?.currency))}</p></div></details>`).join('') || '<p class="empty-note">尚無異動紀錄；舊版未記錄的操作無法回溯。</p>';
+  const historyData = recordPage(Object.entries(state.history || {}).map(([id,h])=>({...h,id})),historyPage,HISTORY_PAGE_SIZE,'at');
+  historyPage = historyData.page;
+  if (history) history.innerHTML = historyData.items.map(h=>`
+    <div class="management-card"><details><summary><strong>${escapeHtml(label(h.type))} ${escapeHtml(h.after?.title || h.before?.title || h.after?.name || '')}</strong> · ${escapeHtml(h.actor?.name || '未指定操作者')}<small>${escapeHtml(h.at ? new Date(h.at).toLocaleString('zh-TW') : '')} · 裝置 ${escapeHtml((h.actor?.uid || '').slice(-8))}</small></summary><div class="audit-detail"><strong>變更前</strong><p>${escapeHtml(describe(h.before,h.after?.currency))}</p><strong>變更後</strong><p>${escapeHtml(describe(h.after,h.after?.currency))}</p></div></details><button class="management-button danger mt-3" data-history-delete-id="${escapeHtml(h.id)}">刪除此異動紀錄</button></div>`).join('') || '<p class="empty-note">尚無異動紀錄；舊版未記錄的操作無法回溯。</p>';
+  const historyPager = document.getElementById('audit-pagination');
+  if (historyPager) historyPager.innerHTML = pager(historyData,'history',HISTORY_PAGE_SIZE);
   const trash = document.getElementById('trash-list');
-  if (trash) trash.innerHTML = (state.trash || []).map(e=>`<div class="management-card"><strong>${escapeHtml(e.title)}</strong><p>${money(e.amount,e.currency)} ${escapeHtml(e.currency)}</p><small>${escapeHtml(e._deletedBy?.name || '')} · ${escapeHtml(e._deletedAt ? new Date(e._deletedAt).toLocaleString('zh-TW') : '')}</small><button class="management-button" data-restore-id="${escapeHtml(e.id)}">復原這筆支出</button></div>`).join('') || '<p class="empty-note">沒有可復原的支出。</p>';
+  const trashData = recordPage(state.trash || [],trashPage,TRASH_PAGE_SIZE,'_deletedAt');
+  trashPage = trashData.page;
+  if (trash) trash.innerHTML = trashData.items.map(e=>`<div class="management-card"><strong>${escapeHtml(e.title)}</strong><p>${money(e.amount,e.currency)} ${escapeHtml(e.currency)}</p><small>${escapeHtml(e._deletedBy?.name || '')} · ${escapeHtml(e._deletedAt ? new Date(e._deletedAt).toLocaleString('zh-TW') : '')}</small><div class="flex flex-wrap gap-2 mt-3"><button class="management-button" data-restore-id="${escapeHtml(e.id)}">復原這筆支出</button><button class="management-button danger" data-trash-delete-id="${escapeHtml(e.id)}">移除復原紀錄</button></div></div>`).join('') || '<p class="empty-note">沒有可復原的支出。</p>';
+  const trashPager = document.getElementById('trash-pagination');
+  if (trashPager) trashPager.innerHTML = pager(trashData,'trash',TRASH_PAGE_SIZE);
   const context = getSyncContext();
   const sync = document.getElementById('management-sync');
   if (sync) sync.textContent = `待同步操作：${context.pendingCount} 筆。異動署名由使用者選擇，裝置識別由登入系統記錄。`;
@@ -60,6 +76,19 @@ export function renderPoolDetails() {
   box.innerHTML+=records.map(e=>`<div class="management-card"><strong>${escapeHtml(e.title)}</strong><p>${money(e.amount,currency)} ${currency} · ${escapeHtml(e.person)}</p><small>${escapeHtml(e.at ? new Date(e.at).toLocaleString('zh-TW') : '')}</small><p>${escapeHtml(e.note || '')}</p></div>`).join('') || '<p class="empty-note">尚無新明細。</p>';
 }
 export function bindManagement() {
+  document.getElementById('audit-pagination').addEventListener('click',event=>{
+    const button=event.target.closest('[data-history-page]');if(!button || button.disabled)return;
+    historyPage+=Number(button.dataset.historyPage);renderManagement();
+  });
+  document.getElementById('trash-pagination').addEventListener('click',event=>{
+    const button=event.target.closest('[data-trash-page]');if(!button || button.disabled)return;
+    trashPage+=Number(button.dataset.trashPage);renderManagement();
+  });
+  document.getElementById('audit-list').addEventListener('click',event=>{
+    const id=event.target.closest('[data-history-delete-id]')?.dataset.historyDeleteId;if(!id)return;
+    if (!confirm('刪除此異動紀錄？原帳目與公積金不會變動，這筆異動紀錄將無法從此處找回。')) return;
+    try { dispatchOperation('history.delete',{id}); } catch(error){showToast(error.message,'error');}
+  });
   document.getElementById('nav-tools').addEventListener('click',()=>{switchTab('tools');renderManagement();});
   document.getElementById('actor-select').addEventListener('change',event=>localStorage.setItem(`tripSplitterActor:${getSyncContext().currentRoomId || 'local'}`,event.target.value));
   document.getElementById('export-json').addEventListener('click',()=>downloadBackup());
@@ -89,8 +118,16 @@ export function bindManagement() {
     } catch(error){showToast(error.message,'error');}
   });
   document.getElementById('trash-list').addEventListener('click',event=>{
+    const deleteId=event.target.closest('[data-trash-delete-id]')?.dataset.trashDeleteId;
+    if (deleteId) {
+      const entry=state.trash.find(e=>String(e.id)===deleteId);if(!entry)return;
+      const revision=state.tombstones[deleteId];
+      if (!confirm(`移除「${entry.title}」的復原紀錄？移除後無法在此處復原，現有帳目與公積金不會變動。`)) return;
+      try { dispatchOperation('trash.delete',{id:entry.id},revision); } catch(error){showToast(error.message,'error');}
+      return;
+    }
     const id=event.target.closest('[data-restore-id]')?.dataset.restoreId;if(!id)return;
-    try { const entry=state.trash.find(e=>String(e.id)===id);if(entry && confirm('復原這筆支出並重新計入結算與公積金？'))dispatchOperation('expense.restore',{id:entry.id},state.tombstones[id]); }
+    try { const entry=state.trash.find(e=>String(e.id)===id);const revision=state.tombstones[id];if(entry && confirm('復原這筆支出並重新計入結算與公積金？'))dispatchOperation('expense.restore',{id:entry.id},revision); }
     catch(error){showToast(error.message,'error');}
   });
   document.getElementById('export-pending').addEventListener('click',()=>download(JSON.stringify({room:getSyncContext().currentRoomId,pending:pendingOperations()},null,2),'待同步變更.json'));

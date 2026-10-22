@@ -1,6 +1,6 @@
-import { state } from '../state.js?v=20261022-4';
-import { getExpenseDraft } from '../state/modalStore.js?v=20261022-4';
-import { escapeHtml, getLocalISOString, getDeviceTimeZoneLabel } from '../utils.js?v=20261022-4';
+import { state } from '../state.js?v=20261022-5';
+import { getExpenseDraft } from '../state/modalStore.js?v=20261022-5';
+import { escapeHtml, getLocalISOString, getDeviceTimeZoneLabel } from '../utils.js?v=20261022-5';
 
 export function renderExpenseModal() {
   const draft = getExpenseDraft();

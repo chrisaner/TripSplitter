@@ -1,8 +1,8 @@
-import { state, emojiList } from './state.js?v=20261022-4';
-import { resetExpenseDraft } from './state/modalStore.js?v=20261022-4';
-import { renderExpenseModal } from './ui/expenseModalUI.js?v=20261022-4';
-import { refreshPoolModalDisplay } from './app.js?v=20261022-4';
-import { getLocalISOString } from './utils.js?v=20261022-4';
+import { state, emojiList } from './state.js?v=20261022-5';
+import { resetExpenseDraft } from './state/modalStore.js?v=20261022-5';
+import { renderExpenseModal } from './ui/expenseModalUI.js?v=20261022-5';
+import { refreshPoolModalDisplay } from './app.js?v=20261022-5';
+import { getLocalISOString } from './utils.js?v=20261022-5';
 
 export function openModal(id) {
   const modal = document.getElementById(id);

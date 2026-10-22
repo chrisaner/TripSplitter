@@ -1,13 +1,13 @@
-import { state } from './state.js?v=20261022-4';
-import { showToast } from './services/errorService.js?v=20261022-4';
-import { handleRoomJoinPrompt } from './services/syncService.js?v=20261022-4';
+import { state } from './state.js?v=20261022-5';
+import { showToast } from './services/errorService.js?v=20261022-5';
+import { handleRoomJoinPrompt } from './services/syncService.js?v=20261022-5';
 import {
   triggerReceiptUpload,
   handleReceiptFile,
   removeReceipt,
   viewFullReceipt,
   applyOCRCandidate
-} from './services/ocrService.js?v=20261022-4';
+} from './services/ocrService.js?v=20261022-5';
 
 import {
   switchTab,
@@ -15,7 +15,7 @@ import {
   calculateSettle,
   updatePool,
   refreshPoolModalDisplay
-} from './app.js?v=20261022-4';
+} from './app.js?v=20261022-5';
 
 import {
   closeModal,
@@ -23,27 +23,27 @@ import {
   openExpenseModal,
   openPoolModal,
   setTempEmoji
-} from './modal.js?v=20261022-4';
+} from './modal.js?v=20261022-5';
 
 import {
   saveExpenseDraft,
   deleteExpenseDraft
-} from './services/expenseService.js?v=20261022-4';
+} from './services/expenseService.js?v=20261022-5';
 
 import {
   saveCurrentMember,
   deleteMemberById
-} from './services/memberService.js?v=20261022-4';
+} from './services/memberService.js?v=20261022-5';
 
 import {
   getExpenseDraft,
   updateExpenseDraft,
   updateExpenseDraftSplit
-} from './state/modalStore.js?v=20261022-4';
+} from './state/modalStore.js?v=20261022-5';
 
 import {
   renderExpenseModal
-} from './ui/expenseModalUI.js?v=20261022-4';
+} from './ui/expenseModalUI.js?v=20261022-5';
 
 export function bindStaticEvents() {
   document.getElementById('auth-btn')?.addEventListener('click', handleRoomJoinPrompt);
