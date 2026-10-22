@@ -6,7 +6,7 @@
   <title>TripSplitter Firebase Sync</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/style.css?v=20261022-2" />
+  <link rel="stylesheet" href="./css/style.css?v=20261022-3" />
 </head>
 <body>
   <div class="app-container shadow-2xl">
@@ -243,13 +243,15 @@
           </div>
         </div>
 
-        <div class="flex gap-3 mb-6">
-          <input type="number" id="pool-input" min="0" step="any" aria-label="公積金金額" placeholder="輸入金額" class="flex-1 min-w-0 bg-gray-50 p-5 rounded-[1.5rem] font-black outline-none border border-gray-100" />
+        <label for="pool-input" class="mb-2">金額（必填）</label>
+        <div class="flex gap-3 mb-2">
+          <input type="number" id="pool-input" min="0" step="any" required aria-label="公積金金額" aria-describedby="pool-input-error" placeholder="例如：10000" class="flex-1 min-w-0 bg-gray-50 p-5 rounded-[1.5rem] font-black outline-none border border-gray-100" />
         </div>
+        <p id="pool-input-error" class="text-sm text-red-600 mb-4" role="alert" hidden></p>
         <label for="pool-member-select">入金來源／退款對象（退款必選）</label>
         <select id="pool-member-select" class="management-input mb-3"></select>
-        <label for="pool-note">備註／調整原因</label>
-        <input id="pool-note" maxlength="200" class="management-input mb-3" placeholder="例如：退還旅程剩餘公積金" />
+        <label for="pool-note">備註（選填；調整餘額時需填原因）</label>
+        <input id="pool-note" maxlength="200" class="management-input mb-3" placeholder="例如：共同旅費（此欄不是金額）" />
 
         <div class="grid grid-cols-2 gap-4 mb-6">
           <button id="pool-add-btn" class="py-5 bg-orange-500 text-white rounded-[1.5rem] font-black shadow-md active:scale-95 transition-transform">儲值進去</button>
@@ -285,7 +287,7 @@
     </div>
   </div>
 
-  <script type="module" src="./js/main.js?v=20261022-2"></script>
+  <script type="module" src="./js/main.js?v=20261022-3"></script>
   <div
   id="global-toast"
   class="hidden fixed top-4 left-1/2 -translate-x-1/2 z-[9999] px-4 py-3 rounded-2xl bg-[#3b3f8c] text-white font-bold shadow-xl"

@@ -1,6 +1,6 @@
-import { state } from '../state.js?v=20261022-2';
-import { getExpenseDraft } from '../state/modalStore.js?v=20261022-2';
-import { escapeHtml, getLocalISOString } from '../utils.js?v=20261022-2'; // ⭐ 匯入 getLocalISOString
+import { state } from '../state.js?v=20261022-3';
+import { getExpenseDraft } from '../state/modalStore.js?v=20261022-3';
+import { escapeHtml, getLocalISOString } from '../utils.js?v=20261022-3'; // ⭐ 匯入 getLocalISOString
 
 export function renderExpenseModal() {
   const draft = getExpenseDraft();

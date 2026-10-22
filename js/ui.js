@@ -1,7 +1,7 @@
-import { state } from './state.js?v=20261022-2';
-import { escapeHtml } from './utils.js?v=20261022-2';
-import { buildExpenseSummaryByCurrency, getPoolHeaderText } from './data.js?v=20261022-2';
-import { calculateSettle } from './app.js?v=20261022-2';
+import { state } from './state.js?v=20261022-3';
+import { escapeHtml } from './utils.js?v=20261022-3';
+import { buildExpenseSummaryByCurrency, getPoolHeaderText } from './data.js?v=20261022-3';
+import { calculateSettle } from './app.js?v=20261022-3';
 
 export function renderMainCats() {
   const container = document.getElementById('main-cats');

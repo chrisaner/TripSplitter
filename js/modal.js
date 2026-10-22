@@ -1,7 +1,7 @@
-import { state, emojiList } from './state.js?v=20261022-2';
-import { resetExpenseDraft } from './state/modalStore.js?v=20261022-2';
-import { renderExpenseModal } from './ui/expenseModalUI.js?v=20261022-2';
-import { refreshPoolModalDisplay } from './app.js?v=20261022-2';
+import { state, emojiList } from './state.js?v=20261022-3';
+import { resetExpenseDraft } from './state/modalStore.js?v=20261022-3';
+import { renderExpenseModal } from './ui/expenseModalUI.js?v=20261022-3';
+import { refreshPoolModalDisplay } from './app.js?v=20261022-3';
 
 export function openModal(id) {
   const modal = document.getElementById(id);
@@ -141,6 +141,8 @@ export function openExpenseModal(editId = null) {
 }
 
 export function openPoolModal() {
+  const error = document.getElementById('pool-input-error');
+  if (error) error.hidden = true;
   const select = document.getElementById('pool-currency-select');
   if (select && !select.value) select.value = 'TWD';
 

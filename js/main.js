@@ -1,14 +1,14 @@
-import './firebase.js?v=20261022-2';
-import './state.js?v=20261022-2';
-import './data.js?v=20261022-2';
+import './firebase.js?v=20261022-3';
+import './state.js?v=20261022-3';
+import './data.js?v=20261022-3';
 
-import { sanitizeRoomId } from './utils.js?v=20261022-2';
-import { bindStaticEvents, bindDelegatedEvents } from './events.js?v=20261022-2';
-import { initFirebaseAuth, joinRoom, syncToCloud, setSyncStatus } from './services/syncService.js?v=20261022-2';
-import { showToast } from './services/errorService.js?v=20261022-2';
-import { subscribe } from './state/store.js?v=20261022-2';
-import { renderApp, renderAppBootstrap } from './ui/appRenderer.js?v=20261022-2';
-import { bindManagement } from './ui/managementUI.js?v=20261022-2';
+import { sanitizeRoomId } from './utils.js?v=20261022-3';
+import { bindStaticEvents, bindDelegatedEvents } from './events.js?v=20261022-3';
+import { initFirebaseAuth, joinRoom, syncToCloud, setSyncStatus } from './services/syncService.js?v=20261022-3';
+import { showToast } from './services/errorService.js?v=20261022-3';
+import { subscribe } from './state/store.js?v=20261022-3';
+import { renderApp, renderAppBootstrap } from './ui/appRenderer.js?v=20261022-3';
+import { bindManagement } from './ui/managementUI.js?v=20261022-3';
 
 window.addEventListener('DOMContentLoaded', async () => {
   bindStaticEvents();

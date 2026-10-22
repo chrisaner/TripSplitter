@@ -1,11 +1,11 @@
-import { state } from './state.js?v=20261022-2';
-import { getPoolBalance } from './data.js?v=20261022-2';
-import { renderActivity, renderAll } from './ui.js?v=20261022-2';
-import { dispatchOperation } from './services/syncService.js?v=20261022-2';
-import { showToast } from './services/errorService.js?v=20261022-2';
-import { settlement, money, CURRENCIES } from './core/ledger.js?v=20261022-2';
-import { escapeHtml } from './utils.js?v=20261022-2';
-import { renderPoolDetails } from './ui/managementUI.js?v=20261022-2';
+import { state } from './state.js?v=20261022-3';
+import { getPoolBalance } from './data.js?v=20261022-3';
+import { renderActivity, renderAll } from './ui.js?v=20261022-3';
+import { dispatchOperation } from './services/syncService.js?v=20261022-3';
+import { showToast } from './services/errorService.js?v=20261022-3';
+import { settlement, money, CURRENCIES } from './core/ledger.js?v=20261022-3';
+import { escapeHtml } from './utils.js?v=20261022-3';
+import { renderPoolDetails } from './ui/managementUI.js?v=20261022-3';
 
 export function switchTab(tab) {
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
@@ -23,9 +23,21 @@ export function applyFilters() {
   renderActivity();
 }
 export function updatePool(mode) {
+  const amountInput = document.getElementById('pool-input');
+  const inputError = document.getElementById('pool-input-error');
+  if (!amountInput.value.trim()) {
+    if (inputError) {
+      inputError.textContent = '請先在「金額（必填）」輸入金額。備註欄的數字不會計入儲值金額。';
+      inputError.hidden = false;
+    }
+    amountInput.focus();
+    amountInput.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    return;
+  }
+  if (inputError) inputError.hidden = true;
   try {
     const currency = document.getElementById('pool-currency-select').value;
-    dispatchOperation('pool.change', { mode, currency, amount: document.getElementById('pool-input').value, previousBalance: getPoolBalance(currency),
+    dispatchOperation('pool.change', { mode, currency, amount: amountInput.value, previousBalance: getPoolBalance(currency),
       memberId: document.getElementById('pool-member-select')?.value || null, note: document.getElementById('pool-note')?.value || '' });
     document.getElementById('pool-input').value = '';
     if (document.getElementById('pool-note')) document.getElementById('pool-note').value = '';

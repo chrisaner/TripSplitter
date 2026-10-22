@@ -1,7 +1,7 @@
-import { renderAll, renderMainCats } from '../ui.js?v=20261022-2';
-import { renderExpenseModal } from './expenseModalUI.js?v=20261022-2';
-import { refreshPoolModalDisplay } from '../app.js?v=20261022-2';
-import { renderManagement } from './managementUI.js?v=20261022-2';
+import { renderAll, renderMainCats } from '../ui.js?v=20261022-3';
+import { renderExpenseModal } from './expenseModalUI.js?v=20261022-3';
+import { refreshPoolModalDisplay } from '../app.js?v=20261022-3';
+import { renderManagement } from './managementUI.js?v=20261022-3';
 
 export function renderApp() {
   renderAll();
