@@ -1,15 +1,35 @@
-import { state, setState, saveLocalState, mergeState, DEFAULT_STATE, setLocalRoom } from '../state.js';
-import { sanitizeRoomId, getShareUrl } from '../utils.js';
-import { db, auth, signInAnonymously, ref, runTransaction, onValue, off, get } from '../firebase.js';
-import { reportError, showToast } from './errorService.js';
-import { applyOperation, financialState } from '../core/ledger.js';
-import { notify } from '../state/store.js';
+import { state, setState, saveLocalState, mergeState, DEFAULT_STATE, setLocalRoom } from '../state.js?v=20261022-2';
+import { sanitizeRoomId, getShareUrl } from '../utils.js?v=20261022-2';
+import { db, auth, signInAnonymously, ref, runTransaction, onValue, off, get } from '../firebase.js?v=20261022-2';
+import { reportError, showToast } from './errorService.js?v=20261022-2';
+import { applyOperation, financialState } from '../core/ledger.js?v=20261022-2';
+import { notify } from '../state/store.js?v=20261022-2';
 
-let currentRoomId = null, currentUserUid = null, roomRef = null;
+let currentRoomId = sanitizeRoomId(new URL(location.href).searchParams.get('room') || '') || null, currentUserUid = null, roomRef = null;
 let base = financialState(state), pending = [], busy = false, ready = false, online = false, saveTimer;
 let status = 'local';
 const queueKey = () => `tripSplitterOutbox:${currentRoomId || 'local'}`;
-const saveQueue = () => localStorage.setItem(queueKey(), JSON.stringify(pending));
+const queuePrefix = () => `${queueKey()}:op:`;
+let persistedIds = new Set(), operationOrder = Date.now();
+function saveQueue() {
+  const nextIds = new Set(pending.map(op=>op.id));
+  for (const op of pending) if (!persistedIds.has(op.id)) localStorage.setItem(queuePrefix()+op.id, JSON.stringify(op));
+  for (const id of persistedIds) if (!nextIds.has(id)) localStorage.removeItem(queuePrefix()+id);
+  persistedIds = nextIds;
+}
+function loadQueue() {
+  const entries = JSON.parse(localStorage.getItem(queueKey()) || '[]');
+  persistedIds = new Set();
+  for (let i=0;i<localStorage.length;i++) {
+    const key=localStorage.key(i);
+    if (key.startsWith(queuePrefix())) {
+      const op=JSON.parse(localStorage.getItem(key)); entries.push(op); persistedIds.add(op.id);
+    }
+  }
+  const result=[...new Map(entries.map(op=>[op.id,op])).values()].sort((a,b)=>(a.order || Date.parse(a.at))-(b.order || Date.parse(b.at)));
+  operationOrder=Math.max(operationOrder,...result.map(op=>op.order || 0));
+  return result;
+}
 export function getSyncContext() { return { currentRoomId, currentUserUid, isApplyingRemote: false, pendingCount: pending.length, status, ready }; }
 export function setSyncStatus(next, detail = '') {
   status = next;
@@ -23,17 +43,25 @@ export function setSyncStatus(next, detail = '') {
 function project() {
   let view = base;
   for (const op of pending) { try { view = applyOperation(view, op); } catch { /* Keep conflicts for explicit resolution. */ } }
-  setState({ ...state, ...financialState(view) }); saveLocalState(); notify();
+  setState({ ...state, ...financialState(view) });
+  try { saveLocalState(); } catch { showToast('此裝置儲存空間不足，請匯出備份並釋放空間', 'error'); }
+  notify();
 }
 export function dispatchOperation(type, data, expectedRevision = 0) {
   if (currentRoomId && !ready) throw new Error('房間尚未讀取完成，請稍候');
   if (status === 'conflict') throw new Error('請先處理待同步衝突');
-  const op = { id: crypto.randomUUID(), type, data: JSON.parse(JSON.stringify(data)), expectedRevision, at: new Date().toISOString(), actor: { uid: currentUserUid || 'local', name: localStorage.getItem(`tripSplitterActor:${currentRoomId || 'local'}`) || '未指定操作者' } };
+  const op = { id: crypto.randomUUID(), epoch: state.epoch || 0, order: operationOrder = Math.max(Date.now(),operationOrder+1), type, data: JSON.parse(JSON.stringify(data)), expectedRevision, at: new Date().toISOString(), actor: { uid: currentUserUid || 'local', name: localStorage.getItem(`tripSplitterActor:${currentRoomId || 'local'}`) || '未指定操作者' } };
   const next = applyOperation(financialState(state), op);
-  if (!currentRoomId) { base = next; setState({ ...state, ...next }); saveLocalState(); notify(); return true; }
+  if (!currentRoomId) {
+    const previous = state; setState({ ...state, ...next });
+    try { saveLocalState(); } catch (error) { setState(previous); throw error; }
+    base = next; notify(); return true;
+  }
   pending.push(op);
   try { saveQueue(); } catch (error) { pending.pop(); throw error; }
-  setState({ ...state, ...next }); saveLocalState(); notify(); scheduleSync(); return true;
+  setState({ ...state, ...next });
+  try { saveLocalState(); } catch { showToast('本機快取空間不足，操作仍已排入同步佇列', 'warn'); }
+  notify(); scheduleSync(); return true;
 }
 export async function initFirebaseAuth() {
   try {
@@ -61,7 +89,7 @@ export async function joinRoom(roomId) {
   if (busy || pending.length) throw new Error('尚有待同步資料，請先完成同步或處理衝突再切換房間');
   if (roomRef) off(roomRef);
   currentRoomId = roomId; ready = false; setSyncStatus('joining'); setLocalRoom(roomId);
-  pending = JSON.parse(localStorage.getItem(queueKey()) || '[]');
+  pending = loadQueue(); saveQueue(); localStorage.removeItem(queueKey());
   const url = new URL(location.href); url.searchParams.set('room', roomId); history.replaceState({}, '', url);
   roomRef = ref(db, `trips/${roomId}`);
   try {

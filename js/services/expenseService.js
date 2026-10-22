@@ -1,7 +1,7 @@
-import { getState } from '../state/store.js';
-import { getExpenseDraft, clearExpenseDraft } from '../state/modalStore.js';
-import { dispatchOperation } from './syncService.js';
-import { showToast } from './errorService.js';
+import { getState } from '../state/store.js?v=20261022-2';
+import { getExpenseDraft, clearExpenseDraft } from '../state/modalStore.js?v=20261022-2';
+import { dispatchOperation } from './syncService.js?v=20261022-2';
+import { showToast } from './errorService.js?v=20261022-2';
 
 export function saveExpenseDraft() {
   const draft = getExpenseDraft();

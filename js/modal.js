@@ -1,7 +1,7 @@
-import { state, emojiList } from './state.js';
-import { resetExpenseDraft } from './state/modalStore.js';
-import { renderExpenseModal } from './ui/expenseModalUI.js';
-import { refreshPoolModalDisplay } from './app.js';
+import { state, emojiList } from './state.js?v=20261022-2';
+import { resetExpenseDraft } from './state/modalStore.js?v=20261022-2';
+import { renderExpenseModal } from './ui/expenseModalUI.js?v=20261022-2';
+import { refreshPoolModalDisplay } from './app.js?v=20261022-2';
 
 export function openModal(id) {
   const modal = document.getElementById(id);

@@ -1,5 +1,5 @@
-import { getState, commit } from './store.js';
-import { getLocalISOString } from '../utils.js';
+import { getState, commit } from './store.js?v=20261022-2';
+import { getLocalISOString } from '../utils.js?v=20261022-2';
 
 function buildDefaultExpenseDraft() {
   const state = getState();

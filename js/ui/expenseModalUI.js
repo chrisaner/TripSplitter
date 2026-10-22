@@ -1,6 +1,6 @@
-import { state } from '../state.js';
-import { getExpenseDraft } from '../state/modalStore.js';
-import { escapeHtml, getLocalISOString } from '../utils.js'; // ⭐ 匯入 getLocalISOString
+import { state } from '../state.js?v=20261022-2';
+import { getExpenseDraft } from '../state/modalStore.js?v=20261022-2';
+import { escapeHtml, getLocalISOString } from '../utils.js?v=20261022-2'; // ⭐ 匯入 getLocalISOString
 
 export function renderExpenseModal() {
   const draft = getExpenseDraft();
@@ -166,7 +166,7 @@ export function renderExpenseOCR() {
           data-index="${idx}"
           class="block w-full text-left bg-white rounded-xl px-3 py-2 border border-indigo-100 active:scale-[0.98] transition"
         >
-          ${c.amount ?? '-'} ${c.currency ?? ''} ${c.label ? `（${c.label}）` : ''}
+          ${c.amount ?? '-'} ${escapeHtml(c.currency ?? '')} ${c.label ? `（${escapeHtml(c.label)}）` : ''}
         </button>
       `).join('');
     }

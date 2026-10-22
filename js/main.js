@@ -1,23 +1,26 @@
-import './firebase.js';
-import './state.js';
-import './data.js';
+import './firebase.js?v=20261022-2';
+import './state.js?v=20261022-2';
+import './data.js?v=20261022-2';
 
-import { sanitizeRoomId } from './utils.js';
-import { bindStaticEvents, bindDelegatedEvents } from './events.js';
-import { initFirebaseAuth, joinRoom, syncToCloud } from './services/syncService.js';
-import { showToast } from './services/errorService.js';
-import { subscribe } from './state/store.js';
-import { renderApp, renderAppBootstrap } from './ui/appRenderer.js';
+import { sanitizeRoomId } from './utils.js?v=20261022-2';
+import { bindStaticEvents, bindDelegatedEvents } from './events.js?v=20261022-2';
+import { initFirebaseAuth, joinRoom, syncToCloud, setSyncStatus } from './services/syncService.js?v=20261022-2';
+import { showToast } from './services/errorService.js?v=20261022-2';
+import { subscribe } from './state/store.js?v=20261022-2';
+import { renderApp, renderAppBootstrap } from './ui/appRenderer.js?v=20261022-2';
+import { bindManagement } from './ui/managementUI.js?v=20261022-2';
 
 window.addEventListener('DOMContentLoaded', async () => {
   bindStaticEvents();
   bindDelegatedEvents();
+  bindManagement();
 
   subscribe(() => {
     renderApp();
   });
 
   renderAppBootstrap();
+  if (new URLSearchParams(location.search).get('room')) setSyncStatus('joining');
   document.getElementById('sync-text')?.addEventListener('click', syncToCloud);
 
   // 1. 初始化 Firebase 身份驗證

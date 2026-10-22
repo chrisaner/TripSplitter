@@ -1,10 +1,11 @@
-import { state } from './state.js';
-import { getPoolBalance } from './data.js';
-import { renderActivity, renderAll } from './ui.js';
-import { dispatchOperation } from './services/syncService.js';
-import { showToast } from './services/errorService.js';
-import { settlement, money, CURRENCIES } from './core/ledger.js';
-import { escapeHtml } from './utils.js';
+import { state } from './state.js?v=20261022-2';
+import { getPoolBalance } from './data.js?v=20261022-2';
+import { renderActivity, renderAll } from './ui.js?v=20261022-2';
+import { dispatchOperation } from './services/syncService.js?v=20261022-2';
+import { showToast } from './services/errorService.js?v=20261022-2';
+import { settlement, money, CURRENCIES } from './core/ledger.js?v=20261022-2';
+import { escapeHtml } from './utils.js?v=20261022-2';
+import { renderPoolDetails } from './ui/managementUI.js?v=20261022-2';
 
 export function switchTab(tab) {
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
@@ -24,8 +25,10 @@ export function applyFilters() {
 export function updatePool(mode) {
   try {
     const currency = document.getElementById('pool-currency-select').value;
-    dispatchOperation('pool.change', { mode, currency, amount: document.getElementById('pool-input').value, previousBalance: getPoolBalance(currency) });
+    dispatchOperation('pool.change', { mode, currency, amount: document.getElementById('pool-input').value, previousBalance: getPoolBalance(currency),
+      memberId: document.getElementById('pool-member-select')?.value || null, note: document.getElementById('pool-note')?.value || '' });
     document.getElementById('pool-input').value = '';
+    if (document.getElementById('pool-note')) document.getElementById('pool-note').value = '';
     refreshPoolModalDisplay(); renderAll();
   } catch (error) { showToast(error.message, 'error'); }
 }
@@ -35,6 +38,7 @@ export function refreshPoolModalDisplay() {
   if (display) display.textContent = money(getPoolBalance(currency), currency);
   const list = document.getElementById('pool-balance-list');
   if (list) list.innerHTML = CURRENCIES.map(c => `<div class="flex justify-between bg-white rounded-xl px-4 py-3"><span>${c}</span><strong>${money(getPoolBalance(c), c)}</strong></div>`).join('');
+  renderPoolDetails();
 }
 export function calculateSettle() {
   const container = document.getElementById('settle-currency-groups');

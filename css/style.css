@@ -39,3 +39,15 @@ select.settle-select {
   border-radius: 1rem;
   padding: 0.75rem 0.9rem;
 }
+
+[hidden] { display: none !important; }
+.management-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 20px; padding: 16px; overflow-wrap: anywhere; }
+.management-card h3, .management-card h4, #page-tools h3 { font-weight: 900; color: #3b3f8c; margin-bottom: 10px; }
+.management-card label, #poolModal label { display: block; font-size: 12px; font-weight: 700; color: #475569; }
+.management-input { display: block; width: 100%; min-width: 0; border: 1px solid #cbd5e1; border-radius: 12px; background: white; padding: 12px; font-size: 14px; }
+.management-button { background: #eef2ff; color: #4338ca; padding: 10px 14px; border-radius: 12px; font-size: 13px; font-weight: 700; }
+.management-button:disabled { opacity: .45; cursor: not-allowed; }
+.empty-note, .management-card small { display: block; color: #64748b; font-size: 12px; line-height: 1.7; }
+.audit-detail { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; margin-top: 12px; user-select: text; }
+.conflict-banner { margin: 12px; background: #fff7ed; color: #9a3412; font-size: 13px; }
+summary { cursor: pointer; }

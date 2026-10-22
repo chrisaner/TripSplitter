@@ -6,7 +6,7 @@
   <title>TripSplitter Firebase Sync</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/style.css" />
+  <link rel="stylesheet" href="./css/style.css?v=20261022-2" />
 </head>
 <body>
   <div class="app-container shadow-2xl">
@@ -19,7 +19,7 @@
           <h1 class="text-xl font-black text-[#3b3f8c]">TripSplitter</h1>
           <div id="cloud-sync-indicator" class="flex items-center mt-0.5">
             <span id="sync-dot" class="w-2 h-2 rounded-full bg-gray-300 mr-1.5"></span>
-            <span id="sync-text" class="text-[8px] font-black text-gray-400 uppercase tracking-tighter">本地模式</span>
+            <button id="sync-text" type="button" title="同步失敗時點此重試" class="text-[10px] font-bold text-gray-500 text-left">本地模式</button>
           </div>
         </div>
       </div>
@@ -35,6 +35,12 @@
     </header>
 
     <main class="flex-1 pb-32">
+      <div id="sync-conflict" class="management-card conflict-banner" hidden role="alert">
+        <strong>待同步變更與雲端版本衝突，尚未覆蓋雲端資料。</strong>
+        <p>先下載待同步變更，再選擇採用雲端版本，重新開啟帳目編輯。</p>
+        <button id="export-pending" class="management-button">下載待同步變更</button>
+        <button id="discard-pending" class="management-button">採用雲端版本</button>
+      </div>
       <section id="page-activity" class="tab-pane active px-5 pt-2">
         <div class="bg-[#3b3f8c] rounded-[2.5rem] p-6 text-white shadow-xl mb-6">
           <p class="text-indigo-200 text-[10px] font-bold mb-1 uppercase tracking-widest">Expenses Overview</p>
@@ -88,6 +94,26 @@
           </div>
         </div>
         <div id="settle-currency-groups" class="space-y-8 pb-10"></div>
+        <p class="empty-note pb-5">台幣、日圓、韓元以整數結算；其他幣別保留兩位小數。每筆支出的尾差依固定成員順序分配，公積金支付不列入個人代墊。</p>
+      </section>
+      <section id="page-tools" class="tab-pane px-5 pt-4 space-y-5">
+        <h2 class="text-2xl font-black text-[#3b3f8c]">旅程管理</h2>
+        <div class="management-card">
+          <label for="actor-select">本裝置的異動紀錄署名</label>
+          <select id="actor-select" class="management-input"></select>
+          <p id="management-sync" class="empty-note"></p>
+        </div>
+        <div class="management-card space-y-3">
+          <h3>匯出與還原</h3>
+          <p class="empty-note">CSV 供查看帳目與公積金明細。JSON 包含成員、支出、刪除紀錄、異動紀錄及公積金；收據保留連結，不含照片原始檔。</p>
+          <div class="flex gap-2"><button id="export-csv" class="management-button">匯出 CSV</button><button id="export-json" class="management-button">備份 JSON</button></div>
+          <label for="import-json">選擇 JSON 備份（最多 20 MB）</label>
+          <input id="import-json" type="file" accept=".json,application/json" class="management-input" />
+          <p id="restore-preview" role="status" class="empty-note">先選擇檔案預覽，確認後才會還原。</p>
+          <button id="restore-backup" class="management-button" disabled>確認還原備份</button>
+        </div>
+        <div><h3>刪除復原</h3><div id="trash-list" class="space-y-3"></div></div>
+        <div><h3>異動紀錄</h3><div id="audit-list" class="space-y-3"></div></div>
       </section>
     </main>
 
@@ -105,6 +131,9 @@
       </div>
       <button id="nav-settle" class="flex flex-col items-center gap-1 text-gray-300">
         <i class="fas fa-file-invoice-dollar text-xl"></i><span class="text-[10px] font-black">結算</span>
+      </button>
+      <button id="nav-tools" class="flex flex-col items-center gap-1 text-gray-300">
+        <i class="fas fa-sliders-h text-xl"></i><span class="text-[10px] font-black">管理</span>
       </button>
     </nav>
 
@@ -131,7 +160,7 @@
               <option value="EUR">EUR 🇪🇺</option>
               <option value="CNY">CNY 🇨🇳</option>
             </select>
-            <input type="number" id="exp-amount" placeholder="0.00" class="flex-1 bg-transparent text-3xl font-black outline-none" />
+            <input type="number" id="exp-amount" min="0" step="any" aria-label="支出金額" placeholder="0" class="flex-1 min-w-0 bg-transparent text-3xl font-black outline-none" />
           </div>
 
           <input type="text" id="exp-title" placeholder="備註..." class="w-full bg-gray-50 p-5 rounded-3xl font-black outline-none" />
@@ -194,7 +223,7 @@
 
     <div id="poolModal" class="modal-overlay">
       <div class="modal-content p-8">
-        <h3 class="text-2xl font-black text-orange-600 mb-2">公積金 Pool</h3>
+        <div class="flex justify-between"><h3 class="text-2xl font-black text-orange-600 mb-2">公積金 Pool</h3><button id="pool-close-btn" aria-label="關閉公積金" class="management-button">關閉</button></div>
         <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-6">管理旅費預算</p>
 
         <div class="bg-orange-50 p-8 rounded-[2.5rem] text-center mb-6">
@@ -210,29 +239,34 @@
             </select>
           </div>
           <div class="flex items-center justify-center gap-2">
-            <span class="text-3xl font-black text-orange-300">$</span>
             <span id="pool-modal-display" class="text-5xl font-black text-orange-600">0</span>
           </div>
         </div>
 
         <div class="flex gap-3 mb-6">
-          <input type="number" id="pool-input" placeholder="輸入金額" class="flex-1 bg-gray-50 p-5 rounded-[1.5rem] font-black outline-none border border-gray-100" />
+          <input type="number" id="pool-input" min="0" step="any" aria-label="公積金金額" placeholder="輸入金額" class="flex-1 min-w-0 bg-gray-50 p-5 rounded-[1.5rem] font-black outline-none border border-gray-100" />
         </div>
+        <label for="pool-member-select">入金來源／退款對象（退款必選）</label>
+        <select id="pool-member-select" class="management-input mb-3"></select>
+        <label for="pool-note">備註／調整原因</label>
+        <input id="pool-note" maxlength="200" class="management-input mb-3" placeholder="例如：退還旅程剩餘公積金" />
 
         <div class="grid grid-cols-2 gap-4 mb-6">
           <button id="pool-add-btn" class="py-5 bg-orange-500 text-white rounded-[1.5rem] font-black shadow-md active:scale-95 transition-transform">儲值進去</button>
-          <button id="pool-set-btn" class="py-5 bg-gray-100 text-gray-400 rounded-[1.5rem] font-black active:scale-95 transition-transform">重設餘額</button>
+          <button id="pool-set-btn" class="py-5 bg-gray-100 text-gray-500 rounded-[1.5rem] font-black active:scale-95 transition-transform">調整餘額（需原因）</button>
         </div>
+        <button id="pool-refund-btn" class="management-button mb-5 w-full">記錄退還給所選成員</button>
 
         <div class="bg-gray-50 rounded-[1.5rem] p-4">
           <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">全部幣別餘額</p>
           <div id="pool-balance-list" class="space-y-2"></div>
         </div>
+        <div id="pool-ledger" class="mt-5 space-y-3"></div>
       </div>
     </div>
 
-    <div id="imageViewerModal" 
-     class="modal-overlay"  
+    <div id="imageViewerModal"
+     class="modal-overlay"
      style="z-index: 2000; background: rgba(0,0,0,0.9);">
 
       <div class="w-full h-full flex items-center justify-center p-4 relative">
@@ -244,14 +278,14 @@
         </button>
 
         <!-- 圖片 -->
-        <img id="full-receipt-display" 
-             src="" 
+        <img id="full-receipt-display"
+             src=""
              class="max-w-full max-h-[80vh] rounded-2xl shadow-2xl">
         </div>
     </div>
   </div>
 
-  <script type="module" src="./js/main.js"></script>
+  <script type="module" src="./js/main.js?v=20261022-2"></script>
   <div
   id="global-toast"
   class="hidden fixed top-4 left-1/2 -translate-x-1/2 z-[9999] px-4 py-3 rounded-2xl bg-[#3b3f8c] text-white font-bold shadow-xl"

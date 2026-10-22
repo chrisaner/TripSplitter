@@ -1,9 +1,11 @@
-import { renderAll, renderMainCats } from '../ui.js';
-import { renderExpenseModal } from './expenseModalUI.js';
-import { refreshPoolModalDisplay } from '../app.js';
+import { renderAll, renderMainCats } from '../ui.js?v=20261022-2';
+import { renderExpenseModal } from './expenseModalUI.js?v=20261022-2';
+import { refreshPoolModalDisplay } from '../app.js?v=20261022-2';
+import { renderManagement } from './managementUI.js?v=20261022-2';
 
 export function renderApp() {
   renderAll();
+  renderManagement();
 
   const expenseModal = document.getElementById('expenseModal');
   const isExpenseModalOpen = expenseModal && expenseModal.style.display === 'flex';

@@ -1,14 +1,14 @@
-import { state } from './state.js';
-import { showToast } from './services/errorService.js';
-import { handleRoomJoinPrompt } from './services/syncService.js';
-import { getLocalISOString } from './utils.js'; // ⭐ 引入時間 Helper
+import { state } from './state.js?v=20261022-2';
+import { showToast } from './services/errorService.js?v=20261022-2';
+import { handleRoomJoinPrompt } from './services/syncService.js?v=20261022-2';
+import { getLocalISOString } from './utils.js?v=20261022-2'; // ⭐ 引入時間 Helper
 import {
   triggerReceiptUpload,
   handleReceiptFile,
   removeReceipt,
   viewFullReceipt,
   applyOCRCandidate
-} from './services/ocrService.js';
+} from './services/ocrService.js?v=20261022-2';
 
 import {
   switchTab,
@@ -16,7 +16,7 @@ import {
   calculateSettle,
   updatePool,
   refreshPoolModalDisplay
-} from './app.js';
+} from './app.js?v=20261022-2';
 
 import {
   closeModal,
@@ -24,27 +24,27 @@ import {
   openExpenseModal,
   openPoolModal,
   setTempEmoji
-} from './modal.js';
+} from './modal.js?v=20261022-2';
 
 import {
   saveExpenseDraft,
   deleteExpenseDraft
-} from './services/expenseService.js';
+} from './services/expenseService.js?v=20261022-2';
 
 import {
   saveCurrentMember,
   deleteMemberById
-} from './services/memberService.js';
+} from './services/memberService.js?v=20261022-2';
 
 import {
   getExpenseDraft,
   updateExpenseDraft,
   updateExpenseDraftSplit
-} from './state/modalStore.js';
+} from './state/modalStore.js?v=20261022-2';
 
 import {
   renderExpenseModal
-} from './ui/expenseModalUI.js';
+} from './ui/expenseModalUI.js?v=20261022-2';
 
 export function bindStaticEvents() {
   document.getElementById('auth-btn')?.addEventListener('click', handleRoomJoinPrompt);
@@ -126,6 +126,8 @@ export function bindStaticEvents() {
   document.getElementById('pool-currency-select')?.addEventListener('change', refreshPoolModalDisplay);
   document.getElementById('pool-add-btn')?.addEventListener('click', () => updatePool('add'));
   document.getElementById('pool-set-btn')?.addEventListener('click', () => updatePool('set'));
+  document.getElementById('pool-refund-btn')?.addEventListener('click', () => updatePool('refund'));
+  document.getElementById('pool-close-btn')?.addEventListener('click', () => closeModal(null,'poolModal'));
 
   document.getElementById('filter-date-select')?.addEventListener('change', applyFilters);
   document.getElementById('filter-member-select')?.addEventListener('change', applyFilters);

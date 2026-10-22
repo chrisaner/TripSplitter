@@ -11,7 +11,7 @@ function client(db, storage = new Map()) {
   const context = vm.createContext({
     state:initial(),DEFAULT_STATE:initial(),crypto:require('node:crypto').webcrypto,JSON,URL,Date,
     location:{href:'https://example.com/?room=test'},history:{replaceState(){}},
-    localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)},
+    localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k),get length(){return storage.size;},key:i=>[...storage.keys()][i]},
     document:{getElementById:()=>null},db:{},auth:{},setTimeout:()=>0,clearTimeout(){},
     financialState,applyOperation,mergeState:financialState,setLocalRoom(){},saveLocalState(){},notify(){},
     setState:next=>{context.state=next;},sanitizeRoomId:x=>x,getShareUrl:x=>x,
@@ -61,4 +61,17 @@ test('member creation and archive dispatch operations for automatic cloud synchr
   vm.runInContext(strip('js/services/memberService.js'),context);
   assert.equal(context.saveCurrentMember('New','🙂'),true);assert.equal(context.deleteMemberById('a'),true);
   assert.deepEqual(calls.map(c=>c[0]),['member.save','member.archive']);
+});
+
+test('editing before initial room load is blocked rather than treated as a local-only change',()=>{
+  const a=client(server());a.context.entry=expense('early');
+  assert.throws(()=>a.call("dispatchOperation('expense.save',entry)"),/尚未讀取完成/);
+});
+test('two tabs sharing localStorage cannot overwrite each others durable outbox',async()=>{
+  const db=server(),storage=new Map(),a=client(db,storage),b=client(db,storage);await a.start();await b.start();
+  a.context.entry=expense('a');b.context.entry=expense('b');
+  a.call("dispatchOperation('expense.save',entry)");b.call("dispatchOperation('expense.save',entry)");
+  const reloaded=client(db,storage);await reloaded.start();
+  assert.equal(reloaded.context.getSyncContext().pendingCount,2);
+  await reloaded.context.syncToCloud();assert.equal(db.value.state.expenses.length,2);
 });

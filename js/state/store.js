@@ -1,4 +1,4 @@
-import { state, setState, saveLocalState } from '../state.js';
+import { state, setState, saveLocalState } from '../state.js?v=20261022-2';
 
 const listeners = new Set();
 
