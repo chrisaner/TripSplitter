@@ -1,10 +1,10 @@
-import { state } from '../state.js?v=20261022-3';
-import { escapeHtml } from '../utils.js?v=20261022-3';
-import { money } from '../core/ledger.js?v=20261022-3';
-import { createBackup, parseBackup, exportCsv } from '../core/backup.js?v=20261022-3';
-import { getSyncContext, pendingOperations, dispatchOperation, discardPending } from '../services/syncService.js?v=20261022-3';
-import { showToast } from '../services/errorService.js?v=20261022-3';
-import { switchTab } from '../app.js?v=20261022-3';
+import { state } from '../state.js?v=20261022-4';
+import { escapeHtml } from '../utils.js?v=20261022-4';
+import { money } from '../core/ledger.js?v=20261022-4';
+import { createBackup, parseBackup, exportCsv } from '../core/backup.js?v=20261022-4';
+import { getSyncContext, pendingOperations, dispatchOperation, discardPending } from '../services/syncService.js?v=20261022-4';
+import { showToast } from '../services/errorService.js?v=20261022-4';
+import { switchTab } from '../app.js?v=20261022-4';
 
 let selectedBackup = null;
 const label = type => ({ 'expense.save':'儲存支出', 'expense.delete':'刪除支出', 'expense.restore':'復原支出', 'member.save':'儲存成員', 'member.archive':'變更成員啟用狀態', 'pool.change':'公積金異動', 'backup.restore':'還原備份' })[type] || type;

@@ -1,14 +1,13 @@
-import { state } from './state.js?v=20261022-3';
-import { showToast } from './services/errorService.js?v=20261022-3';
-import { handleRoomJoinPrompt } from './services/syncService.js?v=20261022-3';
-import { getLocalISOString } from './utils.js?v=20261022-3'; // ⭐ 引入時間 Helper
+import { state } from './state.js?v=20261022-4';
+import { showToast } from './services/errorService.js?v=20261022-4';
+import { handleRoomJoinPrompt } from './services/syncService.js?v=20261022-4';
 import {
   triggerReceiptUpload,
   handleReceiptFile,
   removeReceipt,
   viewFullReceipt,
   applyOCRCandidate
-} from './services/ocrService.js?v=20261022-3';
+} from './services/ocrService.js?v=20261022-4';
 
 import {
   switchTab,
@@ -16,7 +15,7 @@ import {
   calculateSettle,
   updatePool,
   refreshPoolModalDisplay
-} from './app.js?v=20261022-3';
+} from './app.js?v=20261022-4';
 
 import {
   closeModal,
@@ -24,27 +23,27 @@ import {
   openExpenseModal,
   openPoolModal,
   setTempEmoji
-} from './modal.js?v=20261022-3';
+} from './modal.js?v=20261022-4';
 
 import {
   saveExpenseDraft,
   deleteExpenseDraft
-} from './services/expenseService.js?v=20261022-3';
+} from './services/expenseService.js?v=20261022-4';
 
 import {
   saveCurrentMember,
   deleteMemberById
-} from './services/memberService.js?v=20261022-3';
+} from './services/memberService.js?v=20261022-4';
 
 import {
   getExpenseDraft,
   updateExpenseDraft,
   updateExpenseDraftSplit
-} from './state/modalStore.js?v=20261022-3';
+} from './state/modalStore.js?v=20261022-4';
 
 import {
   renderExpenseModal
-} from './ui/expenseModalUI.js?v=20261022-3';
+} from './ui/expenseModalUI.js?v=20261022-4';
 
 export function bindStaticEvents() {
   document.getElementById('auth-btn')?.addEventListener('click', handleRoomJoinPrompt);
@@ -54,16 +53,8 @@ export function bindStaticEvents() {
   document.getElementById('nav-members')?.addEventListener('click', () => switchTab('members'));
   document.getElementById('nav-settle')?.addEventListener('click', () => switchTab('settle'));
   
-  // ⭐ 新增支出：點擊時帶入預設 UTC+8 當前時間
-  document.getElementById('add-expense-btn')?.addEventListener('click', () => {
-    openExpenseModal();
-    const expTimeInput = document.getElementById('exp-time');
-    if (expTimeInput) {
-      const nowUtc8 = getLocalISOString();
-      expTimeInput.value = nowUtc8;
-      updateExpenseDraft({ time: nowUtc8 });
-    }
-  });
+  // All new-expense entry points get device-local time from openExpenseModal.
+  document.getElementById('add-expense-btn')?.addEventListener('click', () => openExpenseModal());
 
   document.getElementById('add-member-btn')?.addEventListener('click', () => openMemberModal());
 

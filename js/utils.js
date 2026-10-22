@@ -31,10 +31,10 @@ export function hashState(obj) {
 }
 
 /**
- * 取得指定時間或當前的本地時間 ISO 字串 (YYYY-MM-DDTHH:mm)
+ * datetime-local value in the device's current time zone, without UTC conversion.
  */
 export function getLocalISOString(dateInput) {
-  const d = dateInput ? new Date(dateInput) : new Date();
+  const d = dateInput == null ? new Date() : new Date(dateInput);
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
@@ -42,4 +42,13 @@ export function getLocalISOString(dateInput) {
   const minutes = String(d.getMinutes()).padStart(2, '0');
 
   return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+export function getDeviceTimeZoneLabel(dateInput) {
+  const date = dateInput == null ? new Date() : new Date(dateInput);
+  const offset = -date.getTimezoneOffset();
+  const sign = offset >= 0 ? '+' : '-';
+  const hours = String(Math.floor(Math.abs(offset) / 60)).padStart(2, '0');
+  const minutes = String(Math.abs(offset) % 60).padStart(2, '0');
+  return `${Intl.DateTimeFormat().resolvedOptions().timeZone} · UTC${sign}${hours}:${minutes}`;
 }

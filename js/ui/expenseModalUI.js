@@ -1,6 +1,6 @@
-import { state } from '../state.js?v=20261022-3';
-import { getExpenseDraft } from '../state/modalStore.js?v=20261022-3';
-import { escapeHtml, getLocalISOString } from '../utils.js?v=20261022-3'; // ⭐ 匯入 getLocalISOString
+import { state } from '../state.js?v=20261022-4';
+import { getExpenseDraft } from '../state/modalStore.js?v=20261022-4';
+import { escapeHtml, getLocalISOString, getDeviceTimeZoneLabel } from '../utils.js?v=20261022-4';
 
 export function renderExpenseModal() {
   const draft = getExpenseDraft();
@@ -22,8 +22,10 @@ export function renderExpenseModal() {
   if (titleInput) titleInput.value = draft.title ?? '';
   if (currencySelect) currencySelect.value = draft.currency || 'TWD';
   
-  // ⭐ 修改重點：若 draft.time 不存在，使用 getLocalISOString() 帶入當前 UTC+8 本地時間
+  // Keep recorded times when editing; new drafts use the device's current local time.
   if (timeInput) timeInput.value = draft.time || getLocalISOString();
+  const timeHint = document.getElementById('expense-time-hint');
+  if (timeHint) timeHint.textContent = draft.id ? '編輯保留原記帳時間；可自行調整。' : `使用裝置當地時間：${getDeviceTimeZoneLabel()}`;
 
   if (deleteBtn) {
     deleteBtn.classList.toggle('hidden', !draft.id);

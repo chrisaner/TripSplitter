@@ -1,7 +1,8 @@
-import { state, emojiList } from './state.js?v=20261022-3';
-import { resetExpenseDraft } from './state/modalStore.js?v=20261022-3';
-import { renderExpenseModal } from './ui/expenseModalUI.js?v=20261022-3';
-import { refreshPoolModalDisplay } from './app.js?v=20261022-3';
+import { state, emojiList } from './state.js?v=20261022-4';
+import { resetExpenseDraft } from './state/modalStore.js?v=20261022-4';
+import { renderExpenseModal } from './ui/expenseModalUI.js?v=20261022-4';
+import { refreshPoolModalDisplay } from './app.js?v=20261022-4';
+import { getLocalISOString } from './utils.js?v=20261022-4';
 
 export function openModal(id) {
   const modal = document.getElementById(id);
@@ -122,7 +123,7 @@ export function openExpenseModal(editId = null) {
       title: firstSub,
       amount: '',
       currency: 'TWD',
-      time: new Date().toISOString().slice(0, 16),
+      time: getLocalISOString(),
       payer: 'pool',
       split: state.members.filter(m => !m.archived).map((m) => m.id),
       receipt: null,

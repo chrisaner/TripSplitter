@@ -1,4 +1,4 @@
-import { state, DEFAULT_STATE, SUPPORTED_CURRENCIES } from './state.js?v=20261022-3';
+import { state, DEFAULT_STATE, SUPPORTED_CURRENCIES } from './state.js?v=20261022-4';
 
 export function getPoolBalance(currency) {
   return Number(state.poolBalances?.[currency] || 0);

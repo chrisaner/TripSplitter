@@ -1,9 +1,9 @@
-import { state, setState, saveLocalState, mergeState, DEFAULT_STATE, setLocalRoom } from '../state.js?v=20261022-3';
-import { sanitizeRoomId, getShareUrl } from '../utils.js?v=20261022-3';
-import { db, auth, signInAnonymously, ref, runTransaction, onValue, off, get } from '../firebase.js?v=20261022-3';
-import { reportError, showToast } from './errorService.js?v=20261022-3';
-import { applyOperation, financialState } from '../core/ledger.js?v=20261022-3';
-import { notify } from '../state/store.js?v=20261022-3';
+import { state, setState, saveLocalState, mergeState, DEFAULT_STATE, setLocalRoom } from '../state.js?v=20261022-4';
+import { sanitizeRoomId, getShareUrl } from '../utils.js?v=20261022-4';
+import { db, auth, signInAnonymously, ref, runTransaction, onValue, off, get } from '../firebase.js?v=20261022-4';
+import { reportError, showToast } from './errorService.js?v=20261022-4';
+import { applyOperation, financialState } from '../core/ledger.js?v=20261022-4';
+import { notify } from '../state/store.js?v=20261022-4';
 
 let currentRoomId = sanitizeRoomId(new URL(location.href).searchParams.get('room') || '') || null, currentUserUid = null, roomRef = null;
 let base = financialState(state), pending = [], busy = false, ready = false, online = false, saveTimer;
