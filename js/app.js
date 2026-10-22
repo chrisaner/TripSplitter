@@ -212,7 +212,8 @@ export function calculateSettle() {
 
         .forEach((e) => {
 
-          if (!e.split || e.split.length === 0) return;
+          // 公積金已由成員事先繳足，不再列入個人代墊或分攤。
+          if (e.payer === 'pool' || !e.split || e.split.length === 0) return;
 
 
 
@@ -298,7 +299,11 @@ export function calculateSettle() {
 
 
 
-      if (displayTxs.length === 0) return '';
+      const emptyMessage = payerFilter !== 'all'
+        ? '該成員在此幣別無須支付款項'
+        : state.expenses.filter((e) => e.currency === curr).every((e) => e.payer === 'pool')
+          ? '此幣別皆由公積金支付，無須個人轉帳'
+          : '此幣別無須個人轉帳';
 
 
 
@@ -314,7 +319,7 @@ export function calculateSettle() {
 
           </div>
 
-          ${displayTxs.map((t) => `
+          ${displayTxs.length === 0 ? `<p class="text-center py-6 text-gray-400 font-bold">${emptyMessage}</p>` : displayTxs.map((t) => `
 
             <div class="bg-white p-5 rounded-[2.5rem] border border-gray-100 flex items-center justify-between shadow-sm">
 
