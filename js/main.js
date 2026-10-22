@@ -3,9 +3,9 @@ import './state.js';
 import './data.js';
 
 import { sanitizeRoomId } from './utils.js';
-import { updateSyncUI } from './ui.js';
 import { bindStaticEvents, bindDelegatedEvents } from './events.js';
-import { initFirebaseAuth, joinRoom } from './services/syncService.js';
+import { initFirebaseAuth, joinRoom, syncToCloud } from './services/syncService.js';
+import { showToast } from './services/errorService.js';
 import { subscribe } from './state/store.js';
 import { renderApp, renderAppBootstrap } from './ui/appRenderer.js';
 
@@ -18,6 +18,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   });
 
   renderAppBootstrap();
+  document.getElementById('sync-text')?.addEventListener('click', syncToCloud);
 
   // 1. 初始化 Firebase 身份驗證
   const uid = await initFirebaseAuth();
@@ -28,10 +29,6 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   if (room && uid) {
     // 成功加入房間並啟動監聽
-    await joinRoom(room);
-    updateSyncUI(true, room);
-  } else {
-    // 未加入房間，維持本地模式
-    updateSyncUI(false);
+    try { await joinRoom(room); } catch (error) { showToast(error.message, 'error'); }
   }
 });

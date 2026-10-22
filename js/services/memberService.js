@@ -1,47 +1,20 @@
-import { getState, commit } from '../state/store.js';
+import { getState } from '../state/store.js';
+import { dispatchOperation } from './syncService.js';
+import { showToast } from './errorService.js';
 
 export function saveCurrentMember(name, emoji) {
-  const trimmed = String(name || '').trim();
-  if (!trimmed) return false;
-
-  const current = getState();
-
-  commit((draft) => {
-    if (current.editingMemberId) {
-      const idx = draft.members.findIndex((m) => m.id === current.editingMemberId);
-      if (idx !== -1) {
-        draft.members[idx] = {
-          ...draft.members[idx],
-          name: trimmed,
-          emoji
-        };
-      }
-    } else {
-      draft.members.push({
-        id: `m${Date.now()}`,
-        name: trimmed,
-        emoji
-      });
-    }
-
-    draft.editingMemberId = null;
-  });
-
-  return true;
+  try {
+    const state = getState();
+    const id = state.editingMemberId || `m_${crypto.randomUUID()}`;
+    const result = dispatchOperation('member.save', { id, name, emoji }, state.editingMemberId ? state.editingMemberRevision || 0 : 0);
+    state.editingMemberId = null;
+    return result;
+  } catch (error) { showToast(error.message, 'error'); return false; }
 }
-
 export function deleteMemberById(id) {
-  commit((draft) => {
-    draft.members = draft.members.filter((m) => m.id !== id);
-
-    draft.expenses = draft.expenses
-      .map((e) => ({
-        ...e,
-        split: e.split.filter((mid) => mid !== id),
-        payer: e.payer === id ? 'pool' : e.payer
-      }))
-      .filter((e) => e.split.length > 0);
-  });
-
-  return true;
+  try {
+    const member = getState().members.find(m => m.id === id);
+    if (!member) return false;
+    return dispatchOperation('member.archive', { id, archived: !member.archived }, member._rev || 0);
+  } catch (error) { showToast(error.message, 'error'); return false; }
 }

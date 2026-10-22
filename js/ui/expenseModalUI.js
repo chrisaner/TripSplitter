@@ -93,13 +93,13 @@ export function renderExpenseSelectors() {
       </div>
     `;
 
-    html += state.members.map((m) => `
+    html += state.members.filter(m => !m.archived || draft.payer === m.id).map((m) => `
       <div
         data-action="draft-set-payer"
         data-payer-id="${m.id}"
         class="avatar-card flex-shrink-0 w-16 h-20 rounded-2xl flex flex-col items-center justify-center gap-2 cursor-pointer bg-gray-50 ${draft.payer === m.id ? 'selected' : ''}"
       >
-        <span class="text-xl">${m.emoji}</span>
+        <span class="text-xl">${escapeHtml(m.emoji)}</span>
         <span class="text-[8px] font-black">${escapeHtml(m.name)}</span>
       </div>
     `).join('');
@@ -108,13 +108,13 @@ export function renderExpenseSelectors() {
   }
 
   if (splitContainer) {
-    splitContainer.innerHTML = state.members.map((m) => `
+    splitContainer.innerHTML = state.members.filter(m => !m.archived || draft.split.includes(m.id)).map((m) => `
       <div
         data-action="draft-toggle-split"
         data-member-id="${m.id}"
         class="avatar-card relative w-16 h-20 rounded-2xl flex flex-col items-center justify-center gap-2 cursor-pointer bg-gray-50 ${draft.split.includes(m.id) ? 'selected' : ''}"
       >
-        <span class="text-xl">${m.emoji}</span>
+        <span class="text-xl">${escapeHtml(m.emoji)}</span>
         <span class="text-[8px] font-black">${escapeHtml(m.name)}</span>
         <div class="check-mark absolute -top-1 -right-1 w-5 h-5 bg-[#5d5fef] text-white rounded-full ${draft.split.includes(m.id) ? 'flex' : 'hidden'} items-center justify-center border-2 border-white">
           <i class="fas fa-check text-[8px]"></i>

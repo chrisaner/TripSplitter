@@ -1,4 +1,7 @@
+import { financialState } from './core/ledger.js';
 export const SUPPORTED_CURRENCIES = ['TWD', 'JPY', 'KRW', 'USD', 'EUR', 'CNY'];
+let localRoom = new URLSearchParams(globalThis.location?.search || '').get('room') || 'local';
+export function setLocalRoom(room) { localRoom = room || 'local'; }
 
 export const DEFAULT_STATE = {
   poolBalances: {
@@ -61,12 +64,12 @@ export function mergeState(remote) {
     merged.poolBalances.TWD = remote.pool;
   }
 
-  return merged;
+  return { ...merged, ...financialState(merged) };
 }
 
 export function loadLocalState() {
   try {
-    const raw = localStorage.getItem('tripSplitterLocalState');
+    const raw = localStorage.getItem(`tripSplitterLocalState:${localRoom}`) || (localRoom === 'local' ? localStorage.getItem('tripSplitterLocalState') : null);
     if (!raw) return structuredClone(DEFAULT_STATE);
     const parsed = JSON.parse(raw);
     return mergeState(parsed);
@@ -82,5 +85,5 @@ export function setState(newState) {
 }
 
 export function saveLocalState() {
-  localStorage.setItem('tripSplitterLocalState', JSON.stringify(state));
+  localStorage.setItem(`tripSplitterLocalState:${localRoom}`, JSON.stringify(state));
 }

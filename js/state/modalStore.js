@@ -12,7 +12,7 @@ function buildDefaultExpenseDraft() {
     currency: 'TWD',
     time: getLocalISOString(),
     payer: 'pool',
-    split: state.members.map((m) => m.id),
+    split: state.members.filter(m => !m.archived).map((m) => m.id),
     receipt: null,
     ocr: {
       status: 'idle',

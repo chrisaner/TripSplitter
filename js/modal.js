@@ -52,6 +52,7 @@ export function openMemberModal(editId = null) {
     if (!member) return;
 
     state.editingMemberId = editId;
+    state.editingMemberRevision = member._rev || 0;
     state.tempEmoji = member.emoji;
 
     document.getElementById('member-modal-title').innerText = '編輯夥伴';
@@ -60,6 +61,7 @@ export function openMemberModal(editId = null) {
     document.getElementById('member-name').value = member.name;
   } else {
     state.editingMemberId = null;
+    state.editingMemberRevision = 0;
     state.tempEmoji = '👤';
 
     document.getElementById('member-modal-title').innerText = '新增夥伴';
@@ -85,11 +87,12 @@ export function openMemberModal(editId = null) {
 
 export function openExpenseModal(editId = null) {
   if (editId) {
-    const exp = state.expenses.find((e) => e.id === editId);
+    const exp = state.expenses.find((e) => String(e.id) === String(editId));
     if (!exp) return;
 
     resetExpenseDraft({
       id: exp.id,
+      expectedRevision: exp._rev || 0,
       cat: exp.cat,
       sub: exp.sub || exp.title,
       title: exp.title,
@@ -121,7 +124,7 @@ export function openExpenseModal(editId = null) {
       currency: 'TWD',
       time: new Date().toISOString().slice(0, 16),
       payer: 'pool',
-      split: state.members.map((m) => m.id),
+      split: state.members.filter(m => !m.archived).map((m) => m.id),
       receipt: null,
       ocr: {
         status: 'idle',

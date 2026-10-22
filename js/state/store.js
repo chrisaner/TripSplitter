@@ -11,6 +11,8 @@ export function subscribe(listener) {
   return () => listeners.delete(listener);
 }
 
+export function notify() { listeners.forEach(listener => listener(state)); }
+
 export function commit(updater, options = { persist: true }) {
   const draft = structuredClone(state);
   updater(draft);
@@ -20,5 +22,5 @@ export function commit(updater, options = { persist: true }) {
     saveLocalState();
   }
 
-  listeners.forEach((listener) => listener(state));
+  notify();
 }

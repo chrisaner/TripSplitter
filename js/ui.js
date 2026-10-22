@@ -102,10 +102,12 @@ export function updateFiltersUI() {
   }
 
   if (settleFilter) {
+    const selected = settleFilter.value || 'all';
     settleFilter.innerHTML = `
       <option value="all">全部顯示</option>
       ${state.members.map((m) => `<option value="${m.id}">${escapeHtml(m.name)}</option>`).join('')}
     `;
+    settleFilter.value = state.members.some(m => m.id === selected) ? selected : 'all';
   }
 }
 
@@ -116,8 +118,8 @@ export function renderMembers() {
   list.innerHTML = state.members.map((m) => `
     <div class="bg-white p-5 rounded-[2rem] border border-gray-50 flex items-center justify-between">
       <div class="flex items-center gap-4">
-        <div class="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center text-2xl">${m.emoji}</div>
-        <p class="font-black text-[#3b3f8c]">${escapeHtml(m.name)}</p>
+        <div class="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center text-2xl">${escapeHtml(m.emoji)}</div>
+        <p class="font-black text-[#3b3f8c]">${escapeHtml(m.name)}${m.archived ? '（已停用）' : ''}</p>
       </div>
 
       <div class="flex items-center gap-2">
@@ -133,7 +135,7 @@ export function renderMembers() {
           data-member-id="${m.id}"
           class="text-red-100 p-2 active:text-red-400 transition-colors"
         >
-          <i class="fas fa-trash text-xs"></i>
+          <span class="text-xs">${m.archived ? '啟用' : '停用'}</span>
         </button>
       </div>
     </div>

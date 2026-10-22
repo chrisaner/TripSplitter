@@ -1,236 +1,109 @@
-import { state, setState, saveLocalState, mergeState } from '../state.js';
-import { hashState, sanitizeRoomId, getShareUrl } from '../utils.js';
-import { updateSyncUI, renderAll } from '../ui.js';
-import { db, auth, signInAnonymously, ref, set, onValue, off, get } from '../firebase.js';
+import { state, setState, saveLocalState, mergeState, DEFAULT_STATE, setLocalRoom } from '../state.js';
+import { sanitizeRoomId, getShareUrl } from '../utils.js';
+import { db, auth, signInAnonymously, ref, runTransaction, onValue, off, get } from '../firebase.js';
 import { reportError, showToast } from './errorService.js';
+import { applyOperation, financialState } from '../core/ledger.js';
+import { notify } from '../state/store.js';
 
-let roomUnsubscribeRef = null;
-let currentRoomId = null;
-let currentUserUid = null;
-let isApplyingRemote = false;
-let lastSavedHash = '';
-let saveTimer = null;
-
-export function getSyncContext() {
-  return {
-    currentRoomId,
-    currentUserUid,
-    isApplyingRemote,
-    lastSavedHash
-  };
+let currentRoomId = null, currentUserUid = null, roomRef = null;
+let base = financialState(state), pending = [], busy = false, ready = false, online = false, saveTimer;
+let status = 'local';
+const queueKey = () => `tripSplitterOutbox:${currentRoomId || 'local'}`;
+const saveQueue = () => localStorage.setItem(queueKey(), JSON.stringify(pending));
+export function getSyncContext() { return { currentRoomId, currentUserUid, isApplyingRemote: false, pendingCount: pending.length, status, ready }; }
+export function setSyncStatus(next, detail = '') {
+  status = next;
+  const text = document.getElementById('sync-text');
+  if (text) text.textContent = ({ local: '本地模式', joining: '讀取房間中', synced: `已同步：${currentRoomId}`, pending: '同步中…', offline: '離線，變更已保存在此裝置', error: '同步失敗，點此重試', conflict: '資料衝突，請處理待同步變更' })[next] + (detail ? `：${detail}` : '');
+  const dot = document.getElementById('sync-dot');
+  if (dot) dot.className = `w-2 h-2 rounded-full mr-1.5 ${next === 'synced' ? 'bg-green-500' : next === 'error' || next === 'conflict' ? 'bg-red-500' : 'bg-gray-300'}`;
+  const banner = document.getElementById('sync-conflict');
+  if (banner) banner.hidden = next !== 'conflict';
 }
-
+function project() {
+  let view = base;
+  for (const op of pending) { try { view = applyOperation(view, op); } catch { /* Keep conflicts for explicit resolution. */ } }
+  setState({ ...state, ...financialState(view) }); saveLocalState(); notify();
+}
+export function dispatchOperation(type, data, expectedRevision = 0) {
+  if (currentRoomId && !ready) throw new Error('房間尚未讀取完成，請稍候');
+  if (status === 'conflict') throw new Error('請先處理待同步衝突');
+  const op = { id: crypto.randomUUID(), type, data: JSON.parse(JSON.stringify(data)), expectedRevision, at: new Date().toISOString(), actor: { uid: currentUserUid || 'local', name: localStorage.getItem(`tripSplitterActor:${currentRoomId || 'local'}`) || '未指定操作者' } };
+  const next = applyOperation(financialState(state), op);
+  if (!currentRoomId) { base = next; setState({ ...state, ...next }); saveLocalState(); notify(); return true; }
+  pending.push(op);
+  try { saveQueue(); } catch (error) { pending.pop(); throw error; }
+  setState({ ...state, ...next }); saveLocalState(); notify(); scheduleSync(); return true;
+}
 export async function initFirebaseAuth() {
   try {
-    const cred = await signInAnonymously(auth);
-    currentUserUid = cred.user.uid;
-    
-    // ⭐ 登入成功後，更新 UI 同步圖示 (若已有 currentRoomId 就帶入)
-    updateSyncUI(Boolean(currentRoomId), currentRoomId || '');
+    currentUserUid = (await signInAnonymously(auth)).user.uid;
+    onValue(ref(db, '.info/connected'), snapshot => {
+      online = snapshot.val() === true;
+      if (currentRoomId && ready) {
+        if (!online) setSyncStatus('offline');
+        else if (pending.length) scheduleSync(); else setSyncStatus('synced');
+      }
+    });
     return currentUserUid;
-  } catch (error) {
-    reportError(error, {
-      scope: 'syncService.initFirebaseAuth',
-      level: 'error',
-      userMessage: 'Firebase 匿名登入失敗'
-    });
-    updateSyncUI(false);
-    return null;
-  }
+  } catch (error) { reportError(error, { userMessage: '匿名登入失敗，請重新整理', scope: 'auth' }); setSyncStatus('error'); return null; }
 }
-
 export async function handleRoomJoinPrompt() {
-  try {
-    if (!currentUserUid) {
-      showToast('Firebase 尚未完成初始化，請稍後再試', 'warn');
-      return;
-    }
-
-    const current = currentRoomId || '';
-    const input = prompt('請輸入共享旅程代碼 room\n例如：tokyo-2026-abc123', current);
-    if (input === null) return;
-
-    const roomId = sanitizeRoomId(input);
-    if (!roomId) {
-      showToast('room 不能是空白', 'warn');
-      return;
-    }
-
-    await joinRoom(roomId);
-
-    const shareUrl = getShareUrl(roomId);
-    const copyIt = confirm(`已加入房間：${roomId}\n\n按「確定」複製分享連結給其他人`);
-
-    if (copyIt) {
-      try {
-        await navigator.clipboard.writeText(shareUrl);
-        showToast('分享連結已複製', 'success');
-      } catch (error) {
-        reportError(error, {
-          scope: 'syncService.handleRoomJoinPrompt.copyLink',
-          level: 'warn',
-          userMessage: '複製失敗，請手動複製連結'
-        });
-      }
-    }
-  } catch (error) {
-    reportError(error, {
-      scope: 'syncService.handleRoomJoinPrompt',
-      level: 'error',
-      userMessage: '加入房間失敗'
-    });
-  }
+  const input = prompt('輸入共享旅程代碼 room', currentRoomId || '');
+  if (input === null) return;
+  const room = sanitizeRoomId(input);
+  if (!room) return showToast('房間代碼不能為空', 'warn');
+  try { await joinRoom(room); if (confirm('已加入房間，是否複製分享連結？')) await navigator.clipboard.writeText(getShareUrl(room)); }
+  catch (error) { showToast(error.message, 'error'); }
 }
-
 export async function joinRoom(roomId) {
-  // ⭐ 若 UID 未準備好，確保 UI 設定為未同步狀態後退出
-  if (!currentUserUid) {
-    updateSyncUI(false);
-    return;
-  }
-
-  if (roomUnsubscribeRef) {
-    off(roomUnsubscribeRef);
-    roomUnsubscribeRef = null;
-  }
-
-  currentRoomId = roomId;
-
-  const url = new URL(window.location.href);
-  url.searchParams.set('room', roomId);
-  window.history.replaceState({}, '', url);
-
-  const tripRef = ref(db, `trips/${roomId}`);
-  roomUnsubscribeRef = tripRef;
-
+  if (!currentUserUid) throw new Error('登入尚未完成');
+  if (busy || pending.length) throw new Error('尚有待同步資料，請先完成同步或處理衝突再切換房間');
+  if (roomRef) off(roomRef);
+  currentRoomId = roomId; ready = false; setSyncStatus('joining'); setLocalRoom(roomId);
+  pending = JSON.parse(localStorage.getItem(queueKey()) || '[]');
+  const url = new URL(location.href); url.searchParams.set('room', roomId); history.replaceState({}, '', url);
+  roomRef = ref(db, `trips/${roomId}`);
   try {
-    const snapshot = await get(tripRef);
-
+    const snapshot = await get(roomRef);
     if (!snapshot.exists()) {
-      await set(tripRef, {
-        state: {
-          poolBalances: state.poolBalances,
-          members: state.members,
-          expenses: state.expenses
-        },
-        meta: {
-          roomId,
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-          updatedBy: currentUserUid
-        }
-      });
+      const initial = { state: financialState(DEFAULT_STATE), meta: { roomId, createdAt: Date.now(), updatedBy: currentUserUid } };
+      await runTransaction(roomRef, current => current || initial, { applyLocally: false });
     }
-  } catch (error) {
-    reportError(error, {
-      scope: 'syncService.joinRoom.createRoom',
-      level: 'error',
-      userMessage: '建立房間失敗'
-    });
-  }
-
-  onValue(
-    tripRef,
-    (snapshot) => {
-      try {
-        const data = snapshot.val();
-        if (!data || !data.state) {
-          // ⭐ 就算資料庫內該路徑為空，只要監聽已成功啟動，就應更新 UI 狀態為 synced
-          updateSyncUI(true, roomId);
-          return;
-        }
-
-        const incoming = mergeState(data.state);
-        const incomingHash = hashState(incoming);
-        const currentHash = hashState(state);
-
-        if (incomingHash === currentHash) {
-          updateSyncUI(true, roomId);
-          return;
-        }
-
-        isApplyingRemote = true;
-
-        const preservedUi = {
-          currentCat: state.currentCat,
-          currentSub: state.currentSub,
-          editingId: state.editingId,
-          selectedPayer: state.selectedPayer,
-          selectedSplit: state.selectedSplit,
-          filterMemberId: state.filterMemberId,
-          filterDate: state.filterDate,
-          tempReceipt: state.tempReceipt,
-          tempEmoji: state.tempEmoji,
-          editingMemberId: state.editingMemberId,
-          ocr: state.ocr
-        };
-
-        setState({
-          ...incoming,
-          ...preservedUi
-        });
-
-        saveLocalState();
-        renderAll();
-        updateSyncUI(true, roomId);
-        lastSavedHash = hashState(state);
-        isApplyingRemote = false;
-      } catch (error) {
-        reportError(error, {
-          scope: 'syncService.joinRoom.onValue',
-          level: 'error',
-          userMessage: '房間資料同步失敗'
-        });
-      }
-    },
-    (error) => {
-      reportError(error, {
-        scope: 'syncService.joinRoom.realtime',
-        level: 'error',
-        userMessage: 'Realtime 同步失敗'
-      });
-      updateSyncUI(false);
-    }
-  );
+    onValue(roomRef, snapshot => {
+      if (!snapshot.val()?.state) return;
+      base = financialState(snapshot.val().state); ready = true; project();
+      if (pending.length) scheduleSync(); else setSyncStatus(online ? 'synced' : 'offline');
+    }, error => { setSyncStatus('error'); reportError(error, { scope: 'sync.listen', userMessage: '房間讀取失敗' }); });
+  } catch (error) { setSyncStatus('error'); throw error; }
 }
-
 export async function syncToCloud() {
-  if (!currentRoomId || !currentUserUid || isApplyingRemote) return;
-
-  const nextHash = hashState(state);
-  if (nextHash === lastSavedHash) return;
-
+  if (!ready || busy || !pending.length || !online || status === 'conflict') return;
+  busy = true; setSyncStatus('pending');
   try {
-    const tripRef = ref(db, `trips/${currentRoomId}`);
-
-    await set(tripRef, {
-      state: {
-        poolBalances: state.poolBalances,
-        members: state.members,
-        expenses: state.expenses
-      },
-      meta: {
-        roomId: currentRoomId,
-        updatedAt: Date.now(),
-        updatedBy: currentUserUid
-      }
-    });
-
-    lastSavedHash = nextHash;
-    updateSyncUI(true, currentRoomId);
-  } catch (error) {
-    reportError(error, {
-      scope: 'syncService.syncToCloud',
-      level: 'error',
-      userMessage: '雲端同步失敗'
-    });
-  }
+    while (pending.length) {
+      const op = pending[0]; let conflict = null;
+      const result = await runTransaction(roomRef, current => {
+        if (!current?.state) { conflict = new Error('房間資料不存在，已停止寫入'); return; }
+        try { const next = applyOperation(current.state, op); conflict = null; return { ...current, state: next, meta: { ...current.meta, updatedAt: Date.now(), updatedBy: currentUserUid } }; }
+        catch (error) { conflict = error; return; }
+      }, { applyLocally: false });
+      if (!result.committed) { setSyncStatus('conflict'); showToast(conflict?.message || '資料衝突，未覆蓋雲端帳目', 'error'); return; }
+      base = financialState(result.snapshot.val().state);
+      pending = pending.filter(entry => entry.id !== op.id); saveQueue(); project();
+    }
+    setSyncStatus('synced');
+  } catch (error) { setSyncStatus('error'); reportError(error, { scope: 'sync.write', userMessage: '同步失敗，變更已保存在此裝置，可點同步文字重試' }); }
+  finally { busy = false; }
 }
-
 export function scheduleSync() {
-  saveLocalState();
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    syncToCloud();
-  }, 250);
+  if (pending.length && status !== 'conflict') setSyncStatus(online ? 'pending' : 'offline');
+  saveTimer = setTimeout(syncToCloud, 250);
+}
+export function pendingOperations() { return JSON.parse(JSON.stringify(pending)); }
+export function discardPending() {
+  if (busy) throw new Error('同步進行中，請稍候');
+  localStorage.setItem(`tripSplitterRejected:${currentRoomId}`, JSON.stringify(pending));
+  pending = []; saveQueue(); project(); setSyncStatus(online ? 'synced' : 'offline');
 }

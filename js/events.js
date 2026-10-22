@@ -1,4 +1,5 @@
 import { state } from './state.js';
+import { showToast } from './services/errorService.js';
 import { handleRoomJoinPrompt } from './services/syncService.js';
 import { getLocalISOString } from './utils.js'; // ⭐ 引入時間 Helper
 import {
@@ -131,9 +132,10 @@ export function bindStaticEvents() {
   document.getElementById('settle-member-filter')?.addEventListener('change', calculateSettle);
 
   document.getElementById('split-select-all-btn')?.addEventListener('click', () => {
-    const next = getExpenseDraft().split.length === state.members.length
+    const active = state.members.filter(m => !m.archived);
+    const next = getExpenseDraft().split.length === active.length
       ? []
-      : state.members.map((m) => m.id);
+      : active.map((m) => m.id);
 
     updateExpenseDraftSplit(next);
   });
@@ -202,14 +204,15 @@ export function bindDelegatedEvents() {
     }
 
     if (btn.dataset.action === 'delete-member') {
-      deleteMemberById(btn.dataset.memberId);
+      const member = state.members.find(m => m.id === btn.dataset.memberId);
+      if (confirm(member?.archived ? '重新啟用這位成員？' : '停用這位成員？歷史帳目及結算會保留。')) deleteMemberById(btn.dataset.memberId);
     }
   });
 
   document.getElementById('activity-list')?.addEventListener('click', (e) => {
     const card = e.target.closest('[data-action="edit-expense"]');
     if (!card) return;
-    openExpenseModal(Number(card.dataset.expenseId));
+    openExpenseModal(card.dataset.expenseId);
   });
 
   document.getElementById('payer-scroll')?.addEventListener('click', (e) => {
