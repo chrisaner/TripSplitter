@@ -1,12 +1,12 @@
-import { state } from '../state.js?v=20261023-travel1';
-import { escapeHtml } from '../utils.js?v=20261023-travel1';
-import { money } from '../core/ledger.js?v=20261023-travel1';
-import { createBackup, parseBackup, exportCsv } from '../core/backup.js?v=20261023-travel1';
-import { getSyncContext, pendingOperations, dispatchOperation, discardPending } from '../services/syncService.js?v=20261023-travel1';
-import { showToast } from '../services/errorService.js?v=20261023-travel1';
-import { switchTab } from '../app.js?v=20261023-travel1';
-import { recordPage, HISTORY_PAGE_SIZE, TRASH_PAGE_SIZE } from '../core/recordPages.js?v=20261023-travel1';
-import { renderAccount } from './accountUI.js?v=20261023-travel1';
+import { state } from '../state.js?v=20261023-travel2';
+import { escapeHtml } from '../utils.js?v=20261023-travel2';
+import { money } from '../core/ledger.js?v=20261023-travel2';
+import { createBackup, parseBackup, exportCsv } from '../core/backup.js?v=20261023-travel2';
+import { getSyncContext, pendingOperations, dispatchOperation, discardPending } from '../services/syncService.js?v=20261023-travel2';
+import { showToast } from '../services/errorService.js?v=20261023-travel2';
+import { switchTab } from '../app.js?v=20261023-travel2';
+import { recordPage, HISTORY_PAGE_SIZE, TRASH_PAGE_SIZE } from '../core/recordPages.js?v=20261023-travel2';
+import { renderAccount } from './accountUI.js?v=20261023-travel2';
 
 let selectedBackup = null;
 let historyPage = 0, trashPage = 0, pageRoom = null;

@@ -1,4 +1,4 @@
-import { state, DEFAULT_STATE, SUPPORTED_CURRENCIES } from './state.js?v=20261023-travel1';
+import { state, DEFAULT_STATE, SUPPORTED_CURRENCIES } from './state.js?v=20261023-travel2';
 
 export function getPoolBalance(currency) {
   return Number(state.poolBalances?.[currency] || 0);

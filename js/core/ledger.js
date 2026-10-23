@@ -241,7 +241,7 @@ function allocate(total, ids, weights) {
   if(!Number.isFinite(sum) || sum<=0)fail('分攤份數合計必須大於零');
   const rows=ids.map(id=>{const exact=total*weights[id]/sum;return {id,n:Math.floor(exact),fraction:exact-Math.floor(exact)};});
   const remaining=total-rows.reduce((n,r)=>n+r.n,0);
-  rows.sort((a,b)=>b.fraction-a.fraction || a.id.localeCompare(b.id));
+  rows.sort((a,b)=>b.fraction-a.fraction || (a.id<b.id?-1:a.id>b.id?1:0));
   for(let i=0;i<remaining;i++)rows[i%rows.length].n++;
   return Object.fromEntries(rows.map(r=>[r.id,r.n]));
 }

@@ -1,7 +1,7 @@
-import { renderAll, renderMainCats } from '../ui.js?v=20261023-travel1';
-import { renderExpenseModal } from './expenseModalUI.js?v=20261023-travel1';
-import { refreshPoolModalDisplay } from '../app.js?v=20261023-travel1';
-import { renderManagement } from './managementUI.js?v=20261023-travel1';
+import { renderAll, renderMainCats } from '../ui.js?v=20261023-travel2';
+import { renderExpenseModal } from './expenseModalUI.js?v=20261023-travel2';
+import { refreshPoolModalDisplay } from '../app.js?v=20261023-travel2';
+import { renderManagement } from './managementUI.js?v=20261023-travel2';
 
 export function renderApp() {
   renderAll();

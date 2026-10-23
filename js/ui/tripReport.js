@@ -1,5 +1,5 @@
-import { financialState, settlementReport, expenseAllocation, CURRENCIES, decimals, money } from '../core/ledger.js?v=20261023-travel1';
-import { escapeHtml as esc } from '../utils.js?v=20261023-travel1';
+import { financialState, settlementReport, expenseAllocation, CURRENCIES, decimals, money } from '../core/ledger.js?v=20261023-travel2';
+import { escapeHtml as esc } from '../utils.js?v=20261023-travel2';
 export function tripReportHtml(raw,room,at=new Date().toISOString()) {
   const state=financialState(raw), name=id=>id==='pool'?'公積金':state.members.find(m=>m.id===id)?.name || id;
   const fmt=(value,c)=>`${money(value,c)} ${c}`;

@@ -1,7 +1,7 @@
-import { expenseAllocation, money, decimals } from '../core/ledger.js?v=20261023-travel1';
-import { state } from '../state.js?v=20261023-travel1';
-import { getExpenseDraft } from '../state/modalStore.js?v=20261023-travel1';
-import { escapeHtml, getLocalISOString, getDeviceTimeZoneLabel } from '../utils.js?v=20261023-travel1';
+import { expenseAllocation, money, decimals } from '../core/ledger.js?v=20261023-travel2';
+import { state } from '../state.js?v=20261023-travel2';
+import { getExpenseDraft } from '../state/modalStore.js?v=20261023-travel2';
+import { escapeHtml, getLocalISOString, getDeviceTimeZoneLabel } from '../utils.js?v=20261023-travel2';
 
 export function renderExpenseModal() {
   const draft = getExpenseDraft();

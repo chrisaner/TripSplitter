@@ -88,3 +88,8 @@ test('old client edits cannot silently erase new split modes or multiple payers'
   s=applyOperation(s,op('expense.save',expense({splitMode:'equal',splitValues:{},payers:null}),1));
   assert.equal(s.expenses[0].splitMode,'equal');assert.equal(s.expenses[0].payers,null);
 });
+test('equal-split remainder preserves legacy codepoint ordering for mixed-case IDs',()=>{
+  const s=financialState({members:[{id:'a',name:'a'},{id:'B',name:'B'},{id:'a_1',name:'a_1'}],expenses:[],poolBalances:{}});
+  const e=expense({amount:1,payer:'a',split:['a','B','a_1']});
+  assert.deepEqual(expenseAllocation(e,s).owed,{B:1,a:0,a_1:0});
+});

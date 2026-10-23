@@ -1,9 +1,9 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification, updateProfile, signOut, reload, signInWithPopup, GoogleAuthProvider } from '../firebase.js?v=20261023-travel1';
-import { state } from '../state.js?v=20261023-travel1';
-import { getSyncContext, initFirebaseAuth, joinRoom, stopAccountSession, setRoomAccess, isRoomAdmin } from '../services/syncService.js?v=20261023-travel1';
-import { roomRequest } from '../services/accountApi.js?v=20261023-travel1';
-import { escapeHtml, getShareUrl } from '../utils.js?v=20261023-travel1';
-import { showToast } from '../services/errorService.js?v=20261023-travel1';
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification, updateProfile, signOut, reload, signInWithPopup, GoogleAuthProvider } from '../firebase.js?v=20261023-travel2';
+import { state } from '../state.js?v=20261023-travel2';
+import { getSyncContext, initFirebaseAuth, joinRoom, stopAccountSession, setRoomAccess, isRoomAdmin } from '../services/syncService.js?v=20261023-travel2';
+import { roomRequest } from '../services/accountApi.js?v=20261023-travel2';
+import { escapeHtml, getShareUrl } from '../utils.js?v=20261023-travel2';
+import { showToast } from '../services/errorService.js?v=20261023-travel2';
 
 let user=null, initialized=false, picker=false, authTurn=0;
 const el=id=>document.getElementById(id);
