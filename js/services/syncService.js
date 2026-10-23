@@ -1,10 +1,10 @@
-import { state, setState, saveLocalState, DEFAULT_STATE, setLocalRoom, setLocalUser, clearAccountCache } from '../state.js?v=20261023-auth1';
-import { sanitizeRoomId, getShareUrl } from '../utils.js?v=20261023-auth1';
-import { db, ref, onValue, off } from '../firebase.js?v=20261023-auth1';
-import { roomRequest } from './accountApi.js?v=20261023-auth1';
-import { reportError, showToast } from './errorService.js?v=20261023-auth1';
-import { applyOperation, financialState } from '../core/ledger.js?v=20261023-auth1';
-import { notify } from '../state/store.js?v=20261023-auth1';
+import { state, setState, saveLocalState, DEFAULT_STATE, setLocalRoom, setLocalUser, clearAccountCache } from '../state.js?v=20261023-auth2';
+import { sanitizeRoomId, getShareUrl } from '../utils.js?v=20261023-auth2';
+import { db, ref, onValue, off } from '../firebase.js?v=20261023-auth2';
+import { roomRequest } from './accountApi.js?v=20261023-auth2';
+import { reportError, showToast } from './errorService.js?v=20261023-auth2';
+import { applyOperation, financialState } from '../core/ledger.js?v=20261023-auth2';
+import { notify } from '../state/store.js?v=20261023-auth2';
 
 let currentRoomId = sanitizeRoomId(new URL(location.href).searchParams.get('room') || '') || null, currentUserUid = null, roomRef = null;
 let base = financialState(state), pending = [], busy = false, ready = false, online = false, saveTimer;

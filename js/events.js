@@ -1,13 +1,13 @@
-import { state } from './state.js?v=20261023-auth1';
-import { showToast } from './services/errorService.js?v=20261023-auth1';
-import { handleRoomJoinPrompt } from './services/syncService.js?v=20261023-auth1';
+import { state } from './state.js?v=20261023-auth2';
+import { showToast } from './services/errorService.js?v=20261023-auth2';
+import { handleRoomJoinPrompt } from './services/syncService.js?v=20261023-auth2';
 import {
   triggerReceiptUpload,
   handleReceiptFile,
   removeReceipt,
   viewFullReceipt,
   applyOCRCandidate
-} from './services/ocrService.js?v=20261023-auth1';
+} from './services/ocrService.js?v=20261023-auth2';
 
 import {
   switchTab,
@@ -15,7 +15,7 @@ import {
   calculateSettle,
   updatePool,
   refreshPoolModalDisplay
-} from './app.js?v=20261023-auth1';
+} from './app.js?v=20261023-auth2';
 
 import {
   closeModal,
@@ -23,27 +23,27 @@ import {
   openExpenseModal,
   openPoolModal,
   setTempEmoji
-} from './modal.js?v=20261023-auth1';
+} from './modal.js?v=20261023-auth2';
 
 import {
   saveExpenseDraft,
   deleteExpenseDraft
-} from './services/expenseService.js?v=20261023-auth1';
+} from './services/expenseService.js?v=20261023-auth2';
 
 import {
   saveCurrentMember,
   deleteMemberById
-} from './services/memberService.js?v=20261023-auth1';
+} from './services/memberService.js?v=20261023-auth2';
 
 import {
   getExpenseDraft,
   updateExpenseDraft,
   updateExpenseDraftSplit
-} from './state/modalStore.js?v=20261023-auth1';
+} from './state/modalStore.js?v=20261023-auth2';
 
 import {
   renderExpenseModal
-} from './ui/expenseModalUI.js?v=20261023-auth1';
+} from './ui/expenseModalUI.js?v=20261023-auth2';
 
 export function bindStaticEvents() {
   document.getElementById('auth-btn')?.addEventListener('click', () => switchTab('tools'));

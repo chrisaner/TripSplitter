@@ -1,12 +1,12 @@
-import { state } from '../state.js?v=20261023-auth1';
-import { escapeHtml } from '../utils.js?v=20261023-auth1';
-import { money } from '../core/ledger.js?v=20261023-auth1';
-import { createBackup, parseBackup, exportCsv } from '../core/backup.js?v=20261023-auth1';
-import { getSyncContext, pendingOperations, dispatchOperation, discardPending } from '../services/syncService.js?v=20261023-auth1';
-import { showToast } from '../services/errorService.js?v=20261023-auth1';
-import { switchTab } from '../app.js?v=20261023-auth1';
-import { recordPage, HISTORY_PAGE_SIZE, TRASH_PAGE_SIZE } from '../core/recordPages.js?v=20261023-auth1';
-import { renderAccount } from './accountUI.js?v=20261023-auth1';
+import { state } from '../state.js?v=20261023-auth2';
+import { escapeHtml } from '../utils.js?v=20261023-auth2';
+import { money } from '../core/ledger.js?v=20261023-auth2';
+import { createBackup, parseBackup, exportCsv } from '../core/backup.js?v=20261023-auth2';
+import { getSyncContext, pendingOperations, dispatchOperation, discardPending } from '../services/syncService.js?v=20261023-auth2';
+import { showToast } from '../services/errorService.js?v=20261023-auth2';
+import { switchTab } from '../app.js?v=20261023-auth2';
+import { recordPage, HISTORY_PAGE_SIZE, TRASH_PAGE_SIZE } from '../core/recordPages.js?v=20261023-auth2';
+import { renderAccount } from './accountUI.js?v=20261023-auth2';
 
 let selectedBackup = null;
 let historyPage = 0, trashPage = 0, pageRoom = null;
@@ -49,7 +49,7 @@ export function renderManagement() {
   const historyData = recordPage(Object.entries(state.history || {}).map(([id,h])=>({...h,id})),historyPage,HISTORY_PAGE_SIZE,'at');
   historyPage = historyData.page;
   if (history) history.innerHTML = historyData.items.map(h=>`
-    <div class="management-card"><details><summary><strong>${escapeHtml(label(h.type))} ${escapeHtml(h.after?.title || h.before?.title || h.after?.name || '')}</strong> · ${escapeHtml(h.actor?.name || '未指定操作者')}<small>${escapeHtml(h.at ? new Date(h.at).toLocaleString('zh-TW') : '')} · 裝置 ${escapeHtml((h.actor?.uid || '').slice(-8))}</small></summary><div class="audit-detail"><strong>變更前</strong><p>${escapeHtml(describe(h.before,h.after?.currency))}</p><strong>變更後</strong><p>${escapeHtml(describe(h.after,h.after?.currency))}</p></div></details><button class="management-button danger mt-3" data-history-delete-id="${escapeHtml(h.id)}">刪除此異動紀錄</button></div>`).join('') || '<p class="empty-note">尚無異動紀錄；舊版未記錄的操作無法回溯。</p>';
+    <div class="management-card"><details><summary><strong>${escapeHtml(label(h.type))} ${escapeHtml(h.after?.title || h.before?.title || h.after?.name || '')}</strong> · ${escapeHtml(h.actor?.name || '未指定操作者')}<small>${escapeHtml(h.at ? new Date(h.at).toLocaleString('zh-TW') : '')} · ${h.actor?.email?'帳號 '+escapeHtml(h.actor.email):'舊裝置 '+escapeHtml((h.actor?.uid || '').slice(-8))}</small></summary><div class="audit-detail"><strong>變更前</strong><p>${escapeHtml(describe(h.before,h.after?.currency))}</p><strong>變更後</strong><p>${escapeHtml(describe(h.after,h.after?.currency))}</p></div></details><button class="management-button danger mt-3" data-history-delete-id="${escapeHtml(h.id)}">刪除此異動紀錄</button></div>`).join('') || '<p class="empty-note">尚無異動紀錄；舊版未記錄的操作無法回溯。</p>';
   const historyPager = document.getElementById('audit-pagination');
   if (historyPager) historyPager.innerHTML = pager(historyData,'history',HISTORY_PAGE_SIZE);
   const trash = document.getElementById('trash-list');
@@ -60,7 +60,7 @@ export function renderManagement() {
   if (trashPager) trashPager.innerHTML = pager(trashData,'trash',TRASH_PAGE_SIZE);
   const context = getSyncContext();
   const sync = document.getElementById('management-sync');
-  if (sync) sync.textContent = `待同步操作：${context.pendingCount} 筆。異動署名由使用者選擇，裝置識別由登入系統記錄。`;
+  if (sync) sync.textContent = `待同步操作：${context.pendingCount} 筆。異動由登入帳號署名，雲端會驗證權限。`;
   renderPoolDetails();
   if(typeof renderAccount==='function')renderAccount();
 }

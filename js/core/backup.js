@@ -1,4 +1,4 @@
-import { financialState, validateSnapshot, CURRENCIES } from './ledger.js?v=20261023-auth1';
+import { financialState, validateSnapshot, CURRENCIES } from './ledger.js?v=20261023-auth2';
 
 export function createBackup(state, roomId, pendingOperations = []) {
   return { format: 'TripSplitterBackup', version: 1, roomId: roomId || 'local', exportedAt: new Date().toISOString(),
