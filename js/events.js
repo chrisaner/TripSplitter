@@ -1,13 +1,13 @@
-import { state } from './state.js?v=20261023-auth2';
-import { showToast } from './services/errorService.js?v=20261023-auth2';
-import { handleRoomJoinPrompt } from './services/syncService.js?v=20261023-auth2';
+import { state } from './state.js?v=20261023-travel1';
+import { showToast } from './services/errorService.js?v=20261023-travel1';
+import { handleRoomJoinPrompt } from './services/syncService.js?v=20261023-travel1';
 import {
   triggerReceiptUpload,
   handleReceiptFile,
   removeReceipt,
   viewFullReceipt,
   applyOCRCandidate
-} from './services/ocrService.js?v=20261023-auth2';
+} from './services/ocrService.js?v=20261023-travel1';
 
 import {
   switchTab,
@@ -15,7 +15,7 @@ import {
   calculateSettle,
   updatePool,
   refreshPoolModalDisplay
-} from './app.js?v=20261023-auth2';
+} from './app.js?v=20261023-travel1';
 
 import {
   closeModal,
@@ -23,29 +23,39 @@ import {
   openExpenseModal,
   openPoolModal,
   setTempEmoji
-} from './modal.js?v=20261023-auth2';
+} from './modal.js?v=20261023-travel1';
 
 import {
   saveExpenseDraft,
   deleteExpenseDraft
-} from './services/expenseService.js?v=20261023-auth2';
+} from './services/expenseService.js?v=20261023-travel1';
 
 import {
   saveCurrentMember,
   deleteMemberById
-} from './services/memberService.js?v=20261023-auth2';
+} from './services/memberService.js?v=20261023-travel1';
 
 import {
   getExpenseDraft,
   updateExpenseDraft,
   updateExpenseDraftSplit
-} from './state/modalStore.js?v=20261023-auth2';
+} from './state/modalStore.js?v=20261023-travel1';
 
 import {
   renderExpenseModal
-} from './ui/expenseModalUI.js?v=20261023-auth2';
+} from './ui/expenseModalUI.js?v=20261023-travel1';
 
 export function bindStaticEvents() {
+  document.getElementById('split-mode').addEventListener('change',e=>updateExpenseDraft({splitMode:e.target.value,splitValues:{}}));
+  document.getElementById('multiple-payers').addEventListener('change',e=>{
+    const d=getExpenseDraft(), payer=d.payer==='pool' ? state.members.find(m=>!m.archived)?.id : d.payer;
+    updateExpenseDraft({payer, payers:e.target.checked ? {[payer]:Number(d.amount) || 0} : null});
+  });
+  document.getElementById('expenseModal').addEventListener('input',e=>{
+    const input=e.target.closest('[data-flex-kind]');if(!input)return;
+    const d=getExpenseDraft(), key=input.dataset.flexKind==='split'?'splitValues':'payers';
+    updateExpenseDraft({[key]:{...d[key],[input.dataset.member]:input.value}});
+  });
   document.getElementById('auth-btn')?.addEventListener('click', () => switchTab('tools'));
   document.getElementById('pool-btn')?.addEventListener('click', openPoolModal);
 
@@ -215,7 +225,7 @@ export function bindDelegatedEvents() {
     const card = e.target.closest('[data-action="draft-set-payer"]');
     if (!card) return;
 
-    updateExpenseDraft({ payer: card.dataset.payerId });
+    updateExpenseDraft({ payer: card.dataset.payerId, payers:null });
   });
 
   document.getElementById('split-scroll')?.addEventListener('click', (e) => {

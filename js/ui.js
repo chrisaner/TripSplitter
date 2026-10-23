@@ -1,7 +1,7 @@
-import { state } from './state.js?v=20261023-auth2';
-import { escapeHtml } from './utils.js?v=20261023-auth2';
-import { buildExpenseSummaryByCurrency, getPoolHeaderText } from './data.js?v=20261023-auth2';
-import { calculateSettle } from './app.js?v=20261023-auth2';
+import { state } from './state.js?v=20261023-travel1';
+import { escapeHtml } from './utils.js?v=20261023-travel1';
+import { buildExpenseSummaryByCurrency, getPoolHeaderText } from './data.js?v=20261023-travel1';
+import { calculateSettle } from './app.js?v=20261023-travel1';
 
 export function renderMainCats() {
   const container = document.getElementById('main-cats');
@@ -153,7 +153,7 @@ export function renderActivity() {
   }
 
   if (state.filterMemberId !== 'all') {
-    list = list.filter((e) => e.payer === state.filterMemberId);
+    list = list.filter((e) => (e.payers ? Object.hasOwn(e.payers,state.filterMemberId) : e.payer === state.filterMemberId));
   }
 
   if (list.length === 0) {
@@ -162,7 +162,7 @@ export function renderActivity() {
   }
 
   container.innerHTML = list.map((e) => {
-    const pName = e.payer === 'pool' ? '💰 Pool' : state.members.find((m) => m.id === e.payer)?.name || '未知';
+    const pName = e.payers ? Object.entries(e.payers).filter(([,n])=>Number(n)>0).map(([id])=>state.members.find(m=>m.id===id)?.name || id).join('、') : e.payer === 'pool' ? '💰 Pool' : state.members.find((m) => m.id === e.payer)?.name || '未知';
     const hasReceipt = e.receipt ? `<i class="fas fa-image text-[#5d5fef] text-[10px] ml-1"></i>` : '';
 
     return `

@@ -1,5 +1,5 @@
-import { getState, commit } from './store.js?v=20261023-auth2';
-import { getLocalISOString } from '../utils.js?v=20261023-auth2';
+import { getState, commit } from './store.js?v=20261023-travel1';
+import { getLocalISOString } from '../utils.js?v=20261023-travel1';
 
 function buildDefaultExpenseDraft() {
   const state = getState();
@@ -11,7 +11,7 @@ function buildDefaultExpenseDraft() {
     amount: '',
     currency: 'TWD',
     time: getLocalISOString(),
-    payer: 'pool',
+    payer: 'pool', splitMode:'equal', splitValues:{}, payers:null,
     split: state.members.filter(m => !m.archived).map((m) => m.id),
     receipt: null,
     ocr: {

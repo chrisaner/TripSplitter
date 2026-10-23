@@ -1,4 +1,4 @@
-import { financialState, validateSnapshot, CURRENCIES } from './ledger.js?v=20261023-auth2';
+import { financialState, validateSnapshot, CURRENCIES, expenseAllocation, decimals } from './ledger.js?v=20261023-travel1';
 
 export function createBackup(state, roomId, pendingOperations = []) {
   return { format: 'TripSplitterBackup', version: 1, roomId: roomId || 'local', exportedAt: new Date().toISOString(),
@@ -22,9 +22,11 @@ export function exportCsv(raw) {
   const name = id => id === 'pool' ? '公積金' : state.members.find(m=>m.id===id)?.name || id || '';
   const rows = [['類型','ID','日期','名稱／備註','幣別','金額','付款人／入金或退款成員','分攤成員','狀態','紀錄署名']];
   for (const [entries,status] of [[state.expenses,'有效'],[state.trash,'已刪除']]) {
-    for (const e of entries) rows.push(['支出',e.id,e.time,e.title,e.currency,e.amount,name(e.payer),e.split.map(name).join('、'),status,'']);
+    for (const e of entries) rows.push(['支出',e.id,e.time,e.title,e.currency,e.amount,e.payers?Object.entries(e.payers).map(([id,n])=>name(id)+':'+n).join('、'):name(e.payer),Object.entries(expenseAllocation(e,state).owed).map(([id,n])=>name(id)+':'+n/10**decimals(e.currency)).join('、'),status,'']);
   }
   for (const c of CURRENCIES) if (state.poolOpening[c]) rows.push(['公積金歷史期初','', '', '歷史入金合計，個別來源未記錄',c,state.poolOpening[c],'','','期初','']);
   for (const e of state.poolEntries) rows.push([({deposit:'入金',refund:'退款',adjustment:'餘額調整'})[e.kind],e.id,e.at,e.note,e.currency,e.amount,name(e.memberId),'','有效',e.actor?.name || '']);
+  for(const r of state.repayments)rows.push(['還款',r.id,r.at,r.note,r.currency,r.amount,name(r.from),name(r.to),r.status,r.actor?.name || '']);
+  if(state.settlementSettings)for(const [c,rate] of Object.entries(state.settlementSettings.rates))rows.push(['固定匯率','',state.settlementSettings.at,'1 '+c+' = '+rate+' '+state.settlementSettings.currency,c,rate,'','',state.settlementSettings.note,'']);
   return '\uFEFF' + rows.map(row=>row.map(csvCell).join(',')).join('\r\n');
 }

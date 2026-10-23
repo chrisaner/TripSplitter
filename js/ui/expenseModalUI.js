@@ -1,6 +1,7 @@
-import { state } from '../state.js?v=20261023-auth2';
-import { getExpenseDraft } from '../state/modalStore.js?v=20261023-auth2';
-import { escapeHtml, getLocalISOString, getDeviceTimeZoneLabel } from '../utils.js?v=20261023-auth2';
+import { expenseAllocation, money, decimals } from '../core/ledger.js?v=20261023-travel1';
+import { state } from '../state.js?v=20261023-travel1';
+import { getExpenseDraft } from '../state/modalStore.js?v=20261023-travel1';
+import { escapeHtml, getLocalISOString, getDeviceTimeZoneLabel } from '../utils.js?v=20261023-travel1';
 
 export function renderExpenseModal() {
   const draft = getExpenseDraft();
@@ -42,6 +43,7 @@ export function renderExpenseModal() {
   renderExpenseCategories();
   renderExpenseSelectors();
   renderExpenseOCR();
+  renderFlexibleFields();
 }
 
 export function renderExpenseCategories() {
@@ -179,4 +181,19 @@ export function renderExpenseOCR() {
   if (ocr.status === 'error') {
     text.innerText = `⚠️ ${ocr.error || '無法自動辨識，請手動輸入'}`;
   }
+}
+
+function renderFlexibleFields() {
+  if(document.activeElement?.matches('[data-flex-kind]'))return;
+  const draft=getExpenseDraft(), mode=draft.splitMode || 'equal';
+  document.getElementById('split-mode').value=mode;
+  document.getElementById('multiple-payers').checked=Boolean(draft.payers);
+  const field=(m,kind,value,unit)=>`<label class="flex items-center justify-between gap-3"><span>${escapeHtml(m.name)} · ${escapeHtml(unit)}</span><input aria-label="${escapeHtml(m.name)}${kind==='split'?'分攤':'代付'}" class="management-input" style="width:50%" type="number" min="0" step="any" data-flex-kind="${kind}" data-member="${m.id}" value="${escapeHtml(value ?? '')}"></label>`;
+  document.getElementById('payer-detail').innerHTML=draft.payers ? state.members.filter(m=>!m.archived || Object.hasOwn(draft.payers,m.id)).map(m=>field(m,'payer',draft.payers[m.id] ?? 0,draft.currency)).join('') : '';
+  let html=mode==='equal' ? '' : state.members.filter(m=>draft.split.includes(m.id)).map(m=>field(m,'split',draft.splitValues?.[m.id],mode==='percent'?'%':mode==='shares'?'份':draft.currency)).join('');
+  try {
+    const allocation=expenseAllocation({...draft,amount:Number(draft.amount)},state);
+    html+=`<p class="empty-note">實際分攤：${Object.entries(allocation.owed).map(([id,n])=>escapeHtml(state.members.find(m=>m.id===id)?.name || id)+' '+money(n/10**decimals(draft.currency),draft.currency)).join('、')} ${draft.currency}</p>`;
+  } catch(error) {html+=`<p class="empty-note">${escapeHtml(error.message)}</p>`;}
+  document.getElementById('split-detail').innerHTML=html;
 }

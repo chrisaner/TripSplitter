@@ -1,12 +1,12 @@
-import { state } from '../state.js?v=20261023-auth2';
-import { escapeHtml } from '../utils.js?v=20261023-auth2';
-import { money } from '../core/ledger.js?v=20261023-auth2';
-import { createBackup, parseBackup, exportCsv } from '../core/backup.js?v=20261023-auth2';
-import { getSyncContext, pendingOperations, dispatchOperation, discardPending } from '../services/syncService.js?v=20261023-auth2';
-import { showToast } from '../services/errorService.js?v=20261023-auth2';
-import { switchTab } from '../app.js?v=20261023-auth2';
-import { recordPage, HISTORY_PAGE_SIZE, TRASH_PAGE_SIZE } from '../core/recordPages.js?v=20261023-auth2';
-import { renderAccount } from './accountUI.js?v=20261023-auth2';
+import { state } from '../state.js?v=20261023-travel1';
+import { escapeHtml } from '../utils.js?v=20261023-travel1';
+import { money } from '../core/ledger.js?v=20261023-travel1';
+import { createBackup, parseBackup, exportCsv } from '../core/backup.js?v=20261023-travel1';
+import { getSyncContext, pendingOperations, dispatchOperation, discardPending } from '../services/syncService.js?v=20261023-travel1';
+import { showToast } from '../services/errorService.js?v=20261023-travel1';
+import { switchTab } from '../app.js?v=20261023-travel1';
+import { recordPage, HISTORY_PAGE_SIZE, TRASH_PAGE_SIZE } from '../core/recordPages.js?v=20261023-travel1';
+import { renderAccount } from './accountUI.js?v=20261023-travel1';
 
 let selectedBackup = null;
 let historyPage = 0, trashPage = 0, pageRoom = null;
@@ -15,11 +15,13 @@ function pager(data, kind, size) {
   const name = kind === 'history' ? '異動紀錄' : '刪除復原';
   return `<div class="record-pager"><p class="empty-note">第 ${data.page+1} / ${data.pages} 頁 · 每頁最多 ${size} 項 · 共 ${data.total} 項</p><div class="flex gap-2"><button class="management-button" data-${kind}-page="-1" aria-label="${name}上一頁" ${data.page===0?'disabled':''}>上一頁</button><button class="management-button" data-${kind}-page="1" aria-label="${name}下一頁" ${data.page===data.pages-1?'disabled':''}>下一頁</button></div></div>`;
 }
-const label = type => ({ 'expense.save':'儲存支出', 'expense.delete':'刪除支出', 'expense.restore':'復原支出', 'member.save':'儲存成員', 'member.archive':'變更成員啟用狀態', 'pool.change':'公積金異動', 'backup.restore':'還原備份' })[type] || type;
+const label = type => ({ 'expense.save':'儲存支出', 'expense.delete':'刪除支出', 'expense.restore':'復原支出', 'member.save':'儲存成員', 'member.archive':'變更成員啟用狀態', 'pool.change':'公積金異動', 'backup.restore':'還原備份','settlement.settings':'結算匯率設定','repayment.save':'登記付款','repayment.confirm':'確認收款','repayment.cancel':'取消還款' })[type] || type;
 function describe(entry, currency) {
   if (!entry) return '無';
   const name = id => state.members.find(m=>m.id===id)?.name || (id==='pool'?'公積金':'未指定');
-  if (entry.payer) return `${entry.title}\n${money(entry.amount,entry.currency)} ${entry.currency}\n付款：${name(entry.payer)}\n分攤：${(entry.split || []).map(name).join('、')}\n日期：${entry.time}`;
+  if (entry.from && entry.to) return `${name(entry.from)} → ${name(entry.to)}\n${money(entry.amount,entry.currency)} ${entry.currency}\n${({pending:'已付待確認',confirmed:'已確認收款',cancelled:'已取消'})[entry.status] || ''}\n${entry.note || ''}`;
+  if (entry.rates) return `結算幣別：${entry.currency}\n${Object.entries(entry.rates).map(([c,r])=>'1 '+c+' = '+r+' '+entry.currency).join('\n')}\n${entry.note || ''}`;
+  if (entry.payer) return `${entry.title}\n${money(entry.amount,entry.currency)} ${entry.currency}\n付款：${entry.payers?Object.entries(entry.payers).map(([id,n])=>name(id)+': '+n).join('、'):name(entry.payer)}\n分攤：${(entry.split || []).map(name).join('、')}\n日期：${entry.time}`;
   if (entry.name) return `${entry.name} ${entry.emoji || ''}\n${entry.archived?'已停用':'使用中'}`;
   if (entry.kind) return `${({deposit:'入金',refund:'退還餘額',adjustment:'餘額調整'})[entry.kind]}：${money(entry.amount,entry.currency)} ${entry.currency}\n成員：${name(entry.memberId)}\n${entry.note || ''}`;
   if (entry.balance !== undefined) return `餘額：${money(entry.balance,currency)} ${currency || ''}`;

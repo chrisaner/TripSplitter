@@ -63,3 +63,12 @@ summary { cursor: pointer; }
 .auth-primary { background:#5d5fef !important;color:white !important; }
 #auth-message { margin:16px 0;color:#3b3f8c;font-size:14px; }
 #room-users .management-card,#room-invites .management-card { margin-top:12px;overflow-wrap:anywhere; }
+.management-card label.rate-row { display:grid;grid-template-columns:70px minmax(0,1fr) 45px;gap:8px;align-items:center; }
+.rate-row .management-input { padding:8px; }
+#settle-currency-groups .management-card { background:white; }
+#page-settle { padding-bottom:32px; }
+#payer-detail label,#split-detail label { display:flex;align-items:center;justify-content:space-between;gap:10px; }
+#payer-detail input,#split-detail input { max-width:50%; }
+.trip-report-preview { position:fixed;inset:0;z-index:1000;background:white;display:flex;flex-direction:column; }
+.report-toolbar { display:flex;justify-content:space-between;gap:12px;padding:12px;background:#eef2ff; }
+.trip-report-preview iframe { border:0;flex:1;width:100%;min-height:0; }

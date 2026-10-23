@@ -3,27 +3,26 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const { test } = require('node:test');
-const { settlement, money } = require('../js/core/ledger.js');
+const { settlement, settlementReport, money, units, decimals } = require('../js/core/ledger.js');
 const { escapeHtml } = require('../js/utils.js');
 
 // Exercise the production renderer without importing Firebase or writing any accounts.
-const source = fs.readFileSync(path.join(__dirname, '../js/app.js'), 'utf8');
-const settleSource = source.slice(
-  source.indexOf('export function calculateSettle()'),
-  source.indexOf('export function startPoolRotation()'),
-).replace('export function', 'function');
-
+const source = fs.readFileSync(path.join(__dirname, '../js/ui/settlementUI.js'), 'utf8');
+const settleSource = source.slice(source.indexOf('const name='),source.indexOf('function renderRateInputs()')).replace('export function','function');
+function elements(filter,container) {
+  const nodes={};return {getElementById(id){if(id==='settle-currency-groups')return container;if(id==='settle-member-filter')return {value:filter};return nodes[id] ||= {dataset:id==='settlement-workspace'?{key:'u:r:0:false:owner:undefined'}:{},value:'',innerHTML:'',options:[]};},querySelectorAll(){return [];}};
+}
 const expense = (currency, payer, amount) => ({ currency, payer, amount, split: ['a', 'b'] });
 function render(expenses, filter = 'all') {
   const state = { members: [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }], expenses };
   const before = JSON.stringify(state);
   const container = { innerHTML: '' };
   const context = vm.createContext({
-    state, settlement, money, escapeHtml,
-    document: { getElementById: id => id === 'settle-currency-groups' ? container : { value: filter } },
+    state, settlement, settlementReport, money, units, decimals, esc:escapeHtml, CURRENCIES:['JPY','TWD'], getSyncContext:()=>({currentUserUid:'u',currentRoomId:'r',role:'owner'}),isRoomAdmin:()=>true,canOperate:()=>true,
+    document: elements(filter,container),
     reportError: error => { throw error; },
   });
-  vm.runInContext(`${settleSource}\ncalculateSettle();`, context);
+  vm.runInContext(`${settleSource}\nrenderSettlement();`, context);
   assert.equal(JSON.stringify(state), before, 'Rendering must not change financial records');
   return container.innerHTML;
 }
@@ -73,8 +72,8 @@ test('empty ledger explains that no settlement data exists', () => {
 test('settlement renderer escapes names and emojis', () => {
   const state = {members:[{id:'a',name:'<img src=x onerror=alert(1)>',emoji:'<svg onload=alert(2)>'},{id:'b',name:'B'}],expenses:[expense('JPY','a',400)]};
   const container = {innerHTML:''};
-  const context = vm.createContext({state, settlement, money, escapeHtml, document:{getElementById:id=>id==='settle-currency-groups'?container:{value:'all'}}});
-  vm.runInContext(settleSource+'\ncalculateSettle();',context);
+  const context = vm.createContext({state, settlement, settlementReport, money, units, decimals, esc:escapeHtml,CURRENCIES:['JPY'],getSyncContext:()=>({currentUserUid:'u',currentRoomId:'r',role:'owner'}),isRoomAdmin:()=>true,canOperate:()=>true,document:elements('all',container)});
+  vm.runInContext(settleSource+'\nrenderSettlement();',context);
   assert.doesNotMatch(container.innerHTML, /<img|<svg/);
   assert.match(container.innerHTML, /&lt;img/);
 });

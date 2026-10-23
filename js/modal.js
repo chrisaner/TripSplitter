@@ -1,8 +1,8 @@
-import { state, emojiList } from './state.js?v=20261023-auth2';
-import { resetExpenseDraft } from './state/modalStore.js?v=20261023-auth2';
-import { renderExpenseModal } from './ui/expenseModalUI.js?v=20261023-auth2';
-import { refreshPoolModalDisplay } from './app.js?v=20261023-auth2';
-import { getLocalISOString } from './utils.js?v=20261023-auth2';
+import { state, emojiList } from './state.js?v=20261023-travel1';
+import { resetExpenseDraft } from './state/modalStore.js?v=20261023-travel1';
+import { renderExpenseModal } from './ui/expenseModalUI.js?v=20261023-travel1';
+import { refreshPoolModalDisplay } from './app.js?v=20261023-travel1';
+import { getLocalISOString } from './utils.js?v=20261023-travel1';
 
 export function openModal(id) {
   const modal = document.getElementById(id);
@@ -101,7 +101,7 @@ export function openExpenseModal(editId = null) {
       currency: exp.currency,
       time: exp.time,
       payer: exp.payer,
-      split: [...exp.split],
+      split: [...exp.split], splitMode:exp.splitMode || 'equal', splitValues:exp.splitValues || {}, payers:exp.payers || null,
 	  titleTouched: false,
       receipt: exp.receipt || null,
       ocr: {

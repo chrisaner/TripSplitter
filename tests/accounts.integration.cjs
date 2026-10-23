@@ -31,6 +31,16 @@ test('authenticated callable integration: legacy owner, invitation, accounting, 
     assert.equal((await call(alice,{action:'join'})).result.access.role,'member');
     const operation={id:'integration-expense',epoch:0,expectedRevision:0,type:'expense.save',actor:{uid:'forged'},data:{id:'e1',title:'Lunch',currency:'JPY',amount:100,payer:'kris',split:['kris','mj'],time:'2026-10-23T12:00'}};
     const saved=await call(alice,{action:'operation',operation});assert.equal(saved.status,200,JSON.stringify(saved));assert.equal(saved.result.state.history['integration-expense'].actor.uid,alice.uid);
+    const settle={id:'cross-rates',epoch:0,expectedRevision:saved.result.state.revision,type:'settlement.settings',data:{currency:'TWD',rates:{TWD:1,JPY:.22}}};
+    const configured=await call(owner,{action:'operation',operation:settle});assert.equal(configured.status,200,JSON.stringify(configured));
+    assert.equal((await call(alice,{action:'operation',operation:{...settle,id:'forged-rates'}})).status,403);
+    const payment={id:'pay-operation',epoch:0,expectedRevision:0,type:'repayment.save',data:{id:'payment',from:'mj',to:'kris',amount:5,currency:'TWD'}};
+    const paid=await call(alice,{action:'operation',operation:payment});assert.equal(paid.status,200,JSON.stringify(paid));
+    assert.equal(ledger.settlementReport(paid.result.state)[0].balances.mj,-11);
+    const confirm={id:'confirm-operation',epoch:0,expectedRevision:1,type:'repayment.confirm',data:{id:'payment'}};
+    assert.equal((await call(alice,{action:'operation',operation:confirm})).status,403);
+    const confirmed=await call(owner,{action:'operation',operation:confirm});assert.equal(confirmed.status,200,JSON.stringify(confirmed));
+    assert.equal(ledger.settlementReport(confirmed.result.state)[0].balances.mj,-6);
     assert.equal((await call(owner,{action:'setUser',uid:alice.uid,role:'viewer',memberId:'mj'})).status,200);
     assert.equal((await call(alice,{action:'operation',operation:{...operation,id:'forbidden'}})).status,403);
     assert.equal((await call(owner,{action:'removeUser',uid:alice.uid})).status,200);

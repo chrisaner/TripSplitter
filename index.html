@@ -6,7 +6,7 @@
   <title>TripSplitter Firebase Sync</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/style.css?v=20261023-auth2" />
+  <link rel="stylesheet" href="./css/style.css?v=20261023-travel1" />
 </head>
 <body>
   <section id="auth-gate" class="auth-shell">
@@ -119,7 +119,8 @@
             </div>
           </div>
         </div>
-        <div id="settle-currency-groups" class="space-y-8 pb-10"></div>
+        <div id="settle-currency-groups" class="space-y-8 pb-5"></div>
+        <div id="settlement-workspace" class="space-y-4 mb-5"></div>
         <p class="empty-note pb-5">台幣、日圓、韓元以整數結算；其他幣別保留兩位小數。每筆支出的尾差依固定成員順序分配，公積金支付不列入個人代墊。</p>
       </section>
       <section id="page-tools" class="tab-pane px-5 pt-4 space-y-5">
@@ -231,6 +232,8 @@
 
           <div class="space-y-3">
             <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">由誰支付</p>
+            <label class="flex gap-2 text-sm my-3"><input id="multiple-payers" type="checkbox">多人代付（個人共同付款）</label>
+            <div id="payer-detail" class="space-y-2"></div>
             <div id="payer-scroll" class="flex gap-4 overflow-x-auto no-scrollbar py-2"></div>
           </div>
 
@@ -239,6 +242,9 @@
               <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest">分攤成員</p>
               <button id="split-select-all-btn" class="text-[10px] font-bold text-[#5d5fef]">全選</button>
             </div>
+            <label class="block text-xs font-bold mt-3" for="split-mode">分帳方式</label>
+            <select id="split-mode" class="management-input"><option value="equal">平均分攤</option><option value="amount">指定金額</option><option value="percent">百分比</option><option value="shares">份數</option></select>
+            <div id="split-detail" class="space-y-2 my-3"></div>
             <div id="split-scroll" class="flex flex-wrap gap-4 py-2"></div>
           </div>
 
@@ -330,7 +336,7 @@
     </div>
   </div>
 
-  <script type="module" src="./js/main.js?v=20261023-auth2"></script>
+  <script type="module" src="./js/main.js?v=20261023-travel1"></script>
   <div
   id="global-toast"
   class="hidden fixed top-4 left-1/2 -translate-x-1/2 z-[9999] px-4 py-3 rounded-2xl bg-[#3b3f8c] text-white font-bold shadow-xl"

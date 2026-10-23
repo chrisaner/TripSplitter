@@ -11,11 +11,11 @@ export function normalizeLedger(raw = {}) {
   // Legacy deposits were not attributed. Preserve the balance without inventing contributors.
   const poolOpening = Object.fromEntries(CURRENCIES.map(c => [c, Number(raw.poolOpening?.[c] ?? Math.round((poolBalances[c] + expenses.filter(e => e.payer === 'pool' && e.currency === c).reduce((sum,e)=>sum+Number(e.amount),0) - poolEntries.filter(e=>e.currency===c).reduce((sum,e)=>sum+Number(e.amount),0))*100)/100)]));
   return { ...raw, schemaVersion: 2, revision: Number(raw.revision || 0), epoch: Number(raw.epoch || 0), members: list(raw.members), expenses,
-    poolBalances, poolOpening, poolEntries, trash: list(raw.trash), history: raw.history || {}, appliedOps: raw.appliedOps || {}, tombstones: raw.tombstones || {} };
+    poolBalances, poolOpening, poolEntries, settlementSettings: raw.settlementSettings || null, repayments: list(raw.repayments), trash: list(raw.trash), history: raw.history || {}, appliedOps: raw.appliedOps || {}, tombstones: raw.tombstones || {} };
 }
 export function financialState(state) {
-  const { schemaVersion, revision, epoch, members, expenses, poolBalances, appliedOps, tombstones, poolOpening, poolEntries, trash, history } = normalizeLedger(state);
-  return clone({ schemaVersion, revision, epoch, members, expenses, poolBalances, appliedOps, tombstones, poolOpening, poolEntries, trash, history });
+  const { schemaVersion, revision, epoch, members, expenses, poolBalances, appliedOps, tombstones, poolOpening, poolEntries, settlementSettings, repayments, trash, history } = normalizeLedger(state);
+  return clone({ schemaVersion, revision, epoch, members, expenses, poolBalances, appliedOps, tombstones, poolOpening, poolEntries, settlementSettings, repayments, trash, history });
 }
 export function recomputePool(state) {
   for (const c of CURRENCIES) {
@@ -35,6 +35,7 @@ export function validateAmount(amount, currency, allowZero = false) {
   return value;
 }
 export function validateExpense(data, state, previous) {
+  if(previous && ((previous.splitMode && previous.splitMode!=='equal' && data.splitMode===undefined) || (previous.payers && data.payers===undefined)))fail('此帳目使用新版分帳，請重新整理網站後再編輯');
   const amount = validateAmount(data.amount, data.currency);
   const exists = id => state.members.some(m => m.id === id);
   if (data.payer !== 'pool' && !exists(data.payer)) fail('付款成員不存在');
@@ -45,7 +46,9 @@ export function validateExpense(data, state, previous) {
   const title = String(data.title || data.sub || '').trim();
   if (!title || title.length > 200) fail('請輸入 1 至 200 字的支出名稱');
   if (data.receipt && (typeof data.receipt !== 'string' || !/^(https:\/\/|data:image\/(jpeg|png|webp);base64,)/i.test(data.receipt))) fail('收據格式不正確');
-  return { ...data, amount, title, split: [...data.split], receipt: data.receipt || null };
+  const entry = { ...data, amount, title, split: [...data.split], receipt: data.receipt || null };
+  expenseAllocation(entry, state, previous || null);
+  return entry;
 }
 export function applyOperation(raw, op) {
   const state = normalizeLedger(clone(raw));
@@ -53,7 +56,41 @@ export function applyOperation(raw, op) {
   if (op.epoch !== undefined && op.epoch !== state.epoch) fail('房間已還原備份，請採用雲端版本並重新確認帳目');
   const data = op.data;
   let before = null, after = null;
-  if (op.type === 'history.delete') {
+  if (op.type === 'settlement.settings') {
+    if (state.revision !== op.expectedRevision) fail('結算匯率已變更，請重新載入');
+    if (state.repayments.some(r=>r.status !== 'cancelled')) {
+      const frozen=state.settlementSettings;
+      if(!frozen || data.currency!==frozen.currency || Object.entries(frozen.rates).some(([c,r])=>Number(data.rates?.[c])!==r))fail('已有還款紀錄，匯率已鎖定；僅能新增未使用幣別的匯率');
+    }
+    before = state.settlementSettings;
+    after = data.currency ? validateSettlementSettings({...data, _rev:(before?._rev || 0)+1, at:op.at}) : null;
+    if(after)settlementReport({...state, settlementSettings:after}, true);
+    state.settlementSettings = after;
+  } else if (op.type.startsWith('repayment.')) {
+    const old = state.repayments.find(r=>r.id===data.id);
+    before = old ? clone(old) : null;
+    if ((old?._rev || 0) !== op.expectedRevision) fail('還款紀錄已變更，請重新確認');
+    if (op.type === 'repayment.save') {
+      if (old) fail('還款不可覆寫，請取消後重新建立');
+      if (!validId(data.id) || data.from===data.to || !state.members.some(m=>m.id===data.from) || !state.members.some(m=>m.id===data.to)) fail('請選擇不同的有效付款及收款成員');
+      const amount = validateAmount(data.amount, data.currency);
+      const group = settlementReport(state).find(g=>g.currency===data.currency);
+      const reserved = state.repayments.filter(r=>r.status==='pending' && r.currency===data.currency);
+      const payable = -(group?.balances[data.from] || 0)-reserved.filter(r=>r.from===data.from).reduce((n,r)=>n+units(r.amount,r.currency),0);
+      const receivable = (group?.balances[data.to] || 0)-reserved.filter(r=>r.to===data.to).reduce((n,r)=>n+units(r.amount,r.currency),0);
+      if (units(amount,data.currency)>Math.min(payable,receivable)) fail('還款不可超過待付／待收餘額（含待確認款項）');
+      after = {id:data.id,from:data.from,to:data.to,amount,currency:data.currency,note:String(data.note || '').slice(0,200),status:'pending',at:op.at,actor:op.actor,_rev:1};
+      state.repayments.push(after);
+    } else {
+      if (!old || old.status==='cancelled') fail('找不到有效還款紀錄');
+      if (op.type==='repayment.confirm') {
+        if(old.status!=='pending') fail('此款項已確認');
+        old.status='confirmed';old.confirmedAt=op.at;old.confirmedBy=op.actor;
+      } else if(op.type==='repayment.cancel') {old.status='cancelled';old.cancelledAt=op.at;old.cancelledBy=op.actor;}
+      else fail('不支援的還款操作');
+      old._rev++;after=clone(old);
+    }
+  } else if (op.type === 'history.delete') {
     if (!validId(data.id)) fail('異動紀錄 ID 不正確');
     delete state.history[data.id];
   } else if (op.type === 'trash.delete') {
@@ -163,7 +200,7 @@ export function validateSnapshot(raw) {
   const cleanExpense = (e, deleted = false) => {
     if (!validId(e.id) || ids.has(String(e.id)) || !validRevision(Number(e._rev || 0))) fail('備份支出 ID 不正確或重複');
     ids.add(String(e.id));
-    const entry = {id:e.id,cat:String(e.cat || 'other'),sub:String(e.sub || ''),title:e.title,amount:e.amount,currency:e.currency,time:e.time,payer:e.payer,split:e.split,receipt:e.receipt || null,_rev:Number(e._rev || 0)};
+    const entry = {id:e.id,cat:String(e.cat || 'other'),sub:String(e.sub || ''),title:e.title,amount:e.amount,currency:e.currency,time:e.time,payer:e.payer,split:e.split,splitMode:e.splitMode || 'equal',splitValues:e.splitValues || {},payers:e.payers || null,receipt:e.receipt || null,_rev:Number(e._rev || 0)};
     const result = validateExpense(entry,state,entry);
     if (deleted) Object.assign(result,{_deletedAt:e._deletedAt || '',_deletedBy:e._deletedBy || null});
     return result;
@@ -184,28 +221,120 @@ export function validateSnapshot(raw) {
   for (const [id,h] of Object.entries(state.history)) {
     if (!validId(id) || !h || typeof h.type !== 'string' || typeof h.at !== 'string' || !validActor(h.actor)) fail('備份異動紀錄不正確');
   }
+  if(state.settlementSettings)state.settlementSettings=validateSettlementSettings(state.settlementSettings);
+  ids.clear();
+  for(const r of state.repayments) {
+    if(!validId(r.id) || ids.has(r.id) || !['pending','confirmed','cancelled'].includes(r.status) || r.from===r.to || !state.members.some(m=>m.id===r.from) || !state.members.some(m=>m.id===r.to) || !validRevision(r._rev) || r._rev<1)fail('備份還款紀錄不正確');
+    validateAmount(r.amount,r.currency);ids.add(r.id);
+    if(state.settlementSettings && r.currency!==state.settlementSettings.currency)fail('備份還款幣別與結算幣別不一致');
+  }
+  if(state.settlementSettings)settlementReport(state,true);
   const expected = clone(state.poolBalances);
   recomputePool(state);
   for (const c of CURRENCIES) if (Math.abs(state.poolBalances[c]-expected[c]) > 0.005) fail('備份公積金明細與餘額不一致');
   return state;
 }
-export function settlement(state, currency) {
-  const balances = Object.fromEntries(state.members.map(m => [m.id, 0]));
-  state.expenses.filter(e => e.currency === currency && e.payer !== 'pool').forEach(e => {
-    const split = [...new Set(e.split || [])].sort();
-    if (!split.length || !(e.payer in balances) || split.some(id => !(id in balances))) fail('帳目包含不存在的成員，請先修正帳目');
-    const amount = units(e.amount, currency); balances[e.payer] += amount;
-    const base = Math.floor(amount / split.length), remainder = amount % split.length;
-    split.forEach((id, i) => balances[id] -= base + (i < remainder ? 1 : 0));
-  });
-  const debt = Object.entries(balances).filter(([, n]) => n < 0).map(([id, n]) => ({ id, amount: -n }));
-  const credit = Object.entries(balances).filter(([, n]) => n > 0).map(([id, amount]) => ({ id, amount }));
-  const transactions = []; let i = 0, j = 0;
-  while (i < debt.length && j < credit.length) {
-    const amount = Math.min(debt[i].amount, credit[j].amount);
-    transactions.push({ from: debt[i].id, to: credit[j].id, amount: amount / 10 ** decimals(currency) });
-    debt[i].amount -= amount; credit[j].amount -= amount;
-    if (!debt[i].amount) i++; if (!credit[j].amount) j++;
+// Largest remainder allocation: deterministic ties and exact conservation in minor units.
+function allocate(total, ids, weights) {
+  ids=[...ids].sort();
+  const sum=ids.reduce((n,id)=>n+weights[id],0);
+  if(!Number.isFinite(sum) || sum<=0)fail('分攤份數合計必須大於零');
+  const rows=ids.map(id=>{const exact=total*weights[id]/sum;return {id,n:Math.floor(exact),fraction:exact-Math.floor(exact)};});
+  const remaining=total-rows.reduce((n,r)=>n+r.n,0);
+  rows.sort((a,b)=>b.fraction-a.fraction || a.id.localeCompare(b.id));
+  for(let i=0;i<remaining;i++)rows[i%rows.length].n++;
+  return Object.fromEntries(rows.map(r=>[r.id,r.n]));
+}
+export function expenseAllocation(e, state, previous=e) {
+  const total=units(e.amount,e.currency), mode=e.splitMode || 'equal';
+  if(!['equal','amount','percent','shares'].includes(mode))fail('不支援的分帳方式');
+  const ids=[...e.split].sort(), values=e.splitValues || {};
+  let owed;
+  if(mode==='equal')owed=allocate(total,ids,Object.fromEntries(ids.map(id=>[id,1])));
+  else {
+    const weights=Object.fromEntries(ids.map(id=>{
+      const value=Number(values[id]);
+      if(values[id]===undefined || String(values[id]).trim()==='' || !Number.isFinite(value) || value<0 || value>1e12)fail('請為每位分攤成員輸入有效數值');
+      if(mode==='amount')validateAmount(value,e.currency,true);
+      if(mode==='percent' && Math.abs(value*10000-Math.round(value*10000))>1e-6)fail('百分比最多四位小數');
+      return [id,value];
+    }));
+    if(mode==='amount') {
+      owed=Object.fromEntries(ids.map(id=>[id,units(weights[id],e.currency)]));
+      if(Object.values(owed).reduce((a,b)=>a+b,0)!==total)fail('指定分攤金額合計必須等於支出總額');
+    } else {
+      if(mode==='percent' && Math.abs(Object.values(weights).reduce((a,b)=>a+b,0)-100)>1e-8)fail('分攤百分比合計必須為 100%');
+      owed=allocate(total,ids,weights);
+    }
   }
-  return { balances, transactions };
+  let paid;
+  if(e.payer==='pool') {if(e.payers && Object.keys(e.payers).length)fail('公積金不可與個人混合代付');paid={pool:total};}
+  else if(e.payers && Object.keys(e.payers).length) {
+    paid={};
+    for(const [id,value] of Object.entries(e.payers)) {
+      const member=state.members.find(m=>m.id===id);
+      if(!member)fail('代付成員不存在');
+      if(member.archived && !Object.hasOwn(previous?.payers || {},id) && previous?.payer!==id)fail('已停用成員不可加入新帳目');
+      paid[id]=units(validateAmount(value,e.currency,true),e.currency);
+    }
+    if(Object.values(paid).reduce((a,b)=>a+b,0)!==total)fail('多人代付金額合計必須等於支出總額');
+  } else paid={[e.payer]:total};
+  return {owed,paid};
+}
+export function validateSettlementSettings(data) {
+  if(!CURRENCIES.includes(data.currency))fail('請選擇結算幣別');
+  const rates={};
+  for(const [c,value] of Object.entries(data.rates || {})) {
+    if(!CURRENCIES.includes(c) || !Number.isFinite(Number(value)) || Number(value)<=0 || Number(value)>1e6 || Number(value)<1e-8)fail('匯率必須介於 0.00000001 與 1000000');
+    rates[c]=Number(value);
+  }
+  if(rates[data.currency]!==1)fail('結算幣別本身的匯率必須為 1');
+  return {currency:data.currency,rates,note:String(data.note || '').slice(0,200),_rev:Number(data._rev || 0),at:String(data.at || '')};
+}
+function transfers(balances,currency) {
+  const debt=Object.entries(balances).filter(([,n])=>n<0).map(([id,n])=>({id,amount:-n}));
+  const credit=Object.entries(balances).filter(([,n])=>n>0).map(([id,amount])=>({id,amount}));
+  const transactions=[];let i=0,j=0;
+  while(i<debt.length && j<credit.length) {
+    const amount=Math.min(debt[i].amount,credit[j].amount);
+    transactions.push({from:debt[i].id,to:credit[j].id,amount:amount/10**decimals(currency)});
+    debt[i].amount-=amount;credit[j].amount-=amount;if(!debt[i].amount)i++;if(!credit[j].amount)j++;
+  }
+  return {currency,balances,transactions};
+}
+export function settlement(state, currency) {
+  const balances=Object.fromEntries(state.members.map(m=>[m.id,0]));
+  for(const e of state.expenses.filter(e=>e.currency===currency && e.payer!=='pool')) {
+    if(!e.split?.length || e.split.some(id=>!(id in balances)) || !(e.payer in balances))fail('帳目包含不存在的成員，請先修正帳目');
+    const {paid,owed}=expenseAllocation(e,state);
+    for(const [id,n] of Object.entries(paid))balances[id]+=n;
+    for(const [id,n] of Object.entries(owed))balances[id]-=n;
+  }
+  for(const r of (state.repayments || []).filter(r=>r.status==='confirmed' && r.currency===currency)) {balances[r.from]+=units(r.amount,currency);balances[r.to]-=units(r.amount,currency);}
+  const result=transfers(balances,currency);
+  return {balances:result.balances,transactions:result.transactions};
+}
+export function settlementReport(state, cross=Boolean(state.settlementSettings)) {
+  const currencies=[...new Set([...state.expenses.map(e=>e.currency),...(state.repayments || []).filter(r=>r.status==='confirmed').map(r=>r.currency)])];
+  if(!cross)return currencies.map(c=>({currency:c,...settlement(state,c)}));
+  const settings=validateSettlementSettings(state.settlementSettings || {}), currency=settings.currency;
+  const balances=Object.fromEntries(state.members.map(m=>[m.id,0]));
+  // Convert each expense once and distribute the same rounded total on both sides.
+  for(const e of state.expenses.filter(e=>e.payer!=='pool')) {
+    const rate=settings.rates[e.currency];if(!rate)fail(`請先設定 ${e.currency} 的結算匯率`);
+    const total=Math.round(Number(e.amount)*rate*10**decimals(currency));
+    if(!Number.isSafeInteger(total) || total>1e14)fail('換匯金額過大，請確認匯率');
+    expenseAllocation(e,state);
+    const paid=e.payers && Object.keys(e.payers).length ? Object.fromEntries(Object.entries(e.payers).map(([id,n])=>[id,Number(n)])) : {[e.payer]:Number(e.amount)};
+    const mode=e.splitMode || 'equal';
+    const owed=Object.fromEntries(e.split.map(id=>[id,mode==='equal'?1:Number(e.splitValues[id])]));
+    for(const [id,n] of Object.entries(allocate(total,Object.keys(paid),paid)))balances[id]+=n;
+    for(const [id,n] of Object.entries(allocate(total,Object.keys(owed),owed)))balances[id]-=n;
+  }
+  for(const r of (state.repayments || []).filter(r=>r.status==='confirmed')) {
+    if(r.currency!==currency)fail('還款幣別與目前結算幣別不一致');
+    balances[r.from]+=units(r.amount,currency);balances[r.to]-=units(r.amount,currency);
+  }
+  if(Object.values(balances).some(n=>!Number.isSafeInteger(n)))fail('結算總額超過安全範圍');
+  return [transfers(balances,currency)];
 }

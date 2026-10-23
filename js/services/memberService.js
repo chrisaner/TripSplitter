@@ -1,6 +1,6 @@
-import { getState } from '../state/store.js?v=20261023-auth2';
-import { dispatchOperation } from './syncService.js?v=20261023-auth2';
-import { showToast } from './errorService.js?v=20261023-auth2';
+import { getState } from '../state/store.js?v=20261023-travel1';
+import { dispatchOperation } from './syncService.js?v=20261023-travel1';
+import { showToast } from './errorService.js?v=20261023-travel1';
 
 export function saveCurrentMember(name, emoji) {
   try {

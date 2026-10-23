@@ -1,10 +1,10 @@
-import { state, setState, saveLocalState, DEFAULT_STATE, setLocalRoom, setLocalUser, clearAccountCache } from '../state.js?v=20261023-auth2';
-import { sanitizeRoomId, getShareUrl } from '../utils.js?v=20261023-auth2';
-import { db, ref, onValue, off } from '../firebase.js?v=20261023-auth2';
-import { roomRequest } from './accountApi.js?v=20261023-auth2';
-import { reportError, showToast } from './errorService.js?v=20261023-auth2';
-import { applyOperation, financialState } from '../core/ledger.js?v=20261023-auth2';
-import { notify } from '../state/store.js?v=20261023-auth2';
+import { state, setState, saveLocalState, DEFAULT_STATE, setLocalRoom, setLocalUser, clearAccountCache } from '../state.js?v=20261023-travel1';
+import { sanitizeRoomId, getShareUrl } from '../utils.js?v=20261023-travel1';
+import { db, ref, onValue, off } from '../firebase.js?v=20261023-travel1';
+import { roomRequest } from './accountApi.js?v=20261023-travel1';
+import { reportError, showToast } from './errorService.js?v=20261023-travel1';
+import { applyOperation, financialState } from '../core/ledger.js?v=20261023-travel1';
+import { notify } from '../state/store.js?v=20261023-travel1';
 
 let currentRoomId = sanitizeRoomId(new URL(location.href).searchParams.get('room') || '') || null, currentUserUid = null, roomRef = null;
 let base = financialState(state), pending = [], busy = false, ready = false, online = false, saveTimer;
@@ -37,10 +37,14 @@ export function isRoomAdmin() { return ['owner','admin'].includes(access?.role);
 export function canOperate(type,data={}) {
   if(!currentUserUid || !ready)return false;
   if(isRoomAdmin())return true;
+  if(access?.role==='member' && type.startsWith('repayment.')) {
+    const r=(state.repayments || []).find(r=>r.id===data.id);
+    return type==='repayment.save' ? access.memberId===data.from : type==='repayment.confirm' ? r?.to===access.memberId : type==='repayment.cancel' && r?.from===access.memberId && r?.status==='pending';
+  }
   return access?.role==='member' && (['expense.save','expense.delete','expense.restore'].includes(type) || (type==='pool.change' && data.mode==='add'));
 }
 export function setRoomAccess(value) { access=value;notify(); }
-function clearView() { setState({...structuredClone(DEFAULT_STATE),...financialState({members:[],expenses:[],poolBalances:{}})}); }
+function clearView() { document.getElementById('trip-report-preview')?.remove?.(); setState({...structuredClone(DEFAULT_STATE),...financialState({members:[],expenses:[],poolBalances:{}})}); }
 export function stopAccountSession() {
   session++;clearTimeout(saveTimer);if(roomRef)off(roomRef);if(membershipRef)off(membershipRef);unsubscribeConnection?.();unsubscribeConnection=null;
   if(currentUserUid)clearAccountCache(currentUserUid);

@@ -1,7 +1,7 @@
 const { createHash } = require('node:crypto');
 const OWNER_EMAIL = 'chrisaner@gmail.com';
-const ADMIN_OPS = new Set(['member.save','member.archive','backup.restore','history.delete','trash.delete']);
-const MEMBER_OPS = new Set(['expense.save','expense.delete','expense.restore','pool.change']);
+const ADMIN_OPS = new Set(['member.save','member.archive','backup.restore','history.delete','trash.delete','settlement.settings']);
+const MEMBER_OPS = new Set(['expense.save','expense.delete','expense.restore','pool.change','repayment.save','repayment.confirm','repayment.cancel']);
 function fail(code, message) { const error = new Error(message); error.code=code; throw error; }
 function emailKey(email) { return createHash('sha256').update(email.toLowerCase()).digest('hex'); }
 function identity(auth) {
@@ -47,6 +47,12 @@ function reduceRoom(raw, input, user, ledger, now=new Date().toISOString()) {
     if(!incoming || !/^[a-zA-Z0-9_-]{1,100}$/.test(incoming.id || '') || !Number.isSafeInteger(incoming.epoch) || !Number.isSafeInteger(incoming.expectedRevision) || incoming.expectedRevision<0)fail('invalid-argument','操作格式不正確');
     if(!admin && (!MEMBER_OPS.has(incoming.type) || own.role!=='member' || (incoming.type==='pool.change' && incoming.data?.mode!=='add')))fail('permission-denied','這項操作需要管理員權限');
     if(!ADMIN_OPS.has(incoming.type) && !MEMBER_OPS.has(incoming.type))fail('invalid-argument','不支援的操作');
+    if(!admin && incoming.type.startsWith('repayment.')) {
+      const record=(room.state.repayments || []).find(r=>r.id===incoming.data?.id);
+      if(incoming.type==='repayment.save' && own.memberId!==incoming.data?.from)fail('permission-denied','只能登記自己綁定成員的付款');
+      if(incoming.type==='repayment.confirm' && (!record || own.memberId!==record.to))fail('permission-denied','只有收款方或管理員能確認收款');
+      if(incoming.type==='repayment.cancel' && (!record || record.status!=='pending' || own.memberId!==record.from))fail('permission-denied','只能取消自己尚未確認的付款；已確認款項需由管理員取消');
+    }
     const linked=(room.state.members || []).find(m=>m.id===own.memberId);
     const operation={...incoming,at:now,actor:{uid:user.uid,email:user.email,name:linked?.name || user.name}};
     try {room.state=ledger.applyOperation(room.state,operation);}catch(error){fail('failed-precondition',error.message);}
