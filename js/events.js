@@ -1,13 +1,13 @@
-import { state } from './state.js?v=20261022-5';
-import { showToast } from './services/errorService.js?v=20261022-5';
-import { handleRoomJoinPrompt } from './services/syncService.js?v=20261022-5';
+import { state } from './state.js?v=20261023-auth1';
+import { showToast } from './services/errorService.js?v=20261023-auth1';
+import { handleRoomJoinPrompt } from './services/syncService.js?v=20261023-auth1';
 import {
   triggerReceiptUpload,
   handleReceiptFile,
   removeReceipt,
   viewFullReceipt,
   applyOCRCandidate
-} from './services/ocrService.js?v=20261022-5';
+} from './services/ocrService.js?v=20261023-auth1';
 
 import {
   switchTab,
@@ -15,7 +15,7 @@ import {
   calculateSettle,
   updatePool,
   refreshPoolModalDisplay
-} from './app.js?v=20261022-5';
+} from './app.js?v=20261023-auth1';
 
 import {
   closeModal,
@@ -23,30 +23,30 @@ import {
   openExpenseModal,
   openPoolModal,
   setTempEmoji
-} from './modal.js?v=20261022-5';
+} from './modal.js?v=20261023-auth1';
 
 import {
   saveExpenseDraft,
   deleteExpenseDraft
-} from './services/expenseService.js?v=20261022-5';
+} from './services/expenseService.js?v=20261023-auth1';
 
 import {
   saveCurrentMember,
   deleteMemberById
-} from './services/memberService.js?v=20261022-5';
+} from './services/memberService.js?v=20261023-auth1';
 
 import {
   getExpenseDraft,
   updateExpenseDraft,
   updateExpenseDraftSplit
-} from './state/modalStore.js?v=20261022-5';
+} from './state/modalStore.js?v=20261023-auth1';
 
 import {
   renderExpenseModal
-} from './ui/expenseModalUI.js?v=20261022-5';
+} from './ui/expenseModalUI.js?v=20261023-auth1';
 
 export function bindStaticEvents() {
-  document.getElementById('auth-btn')?.addEventListener('click', handleRoomJoinPrompt);
+  document.getElementById('auth-btn')?.addEventListener('click', () => switchTab('tools'));
   document.getElementById('pool-btn')?.addEventListener('click', openPoolModal);
 
   document.getElementById('nav-activity')?.addEventListener('click', () => switchTab('activity'));

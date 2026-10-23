@@ -7,29 +7,36 @@ const strip = file => fs.readFileSync(file,'utf8').replace(/^import .*;\r?\n/gm,
 const initial = () => financialState({members:[{id:'a',name:'A'},{id:'b',name:'B'}],expenses:[],poolBalances:{JPY:1000}});
 const expense = id => ({id,title:id,amount:100,currency:'JPY',payer:'pool',split:['a','b'],time:'2026-10-22T22:00'});
 function server() { return {value:{state:initial(),meta:{createdAt:123}},listeners:[],fail:false}; }
-function client(db, storage = new Map()) {
+function client(db, storage = new Map(), uid='test-user') {
   const context = vm.createContext({
-    state:initial(),DEFAULT_STATE:initial(),crypto:require('node:crypto').webcrypto,JSON,URL,Date,
+    state:initial(),DEFAULT_STATE:initial(),crypto:require('node:crypto').webcrypto,JSON,URL,Date,structuredClone,
     location:{href:'https://example.com/?room=test'},history:{replaceState(){}},
     localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k),get length(){return storage.size;},key:i=>[...storage.keys()][i]},
     document:{getElementById:()=>null},db:{},auth:{},setTimeout:()=>0,clearTimeout(){},
-    financialState,applyOperation,mergeState:financialState,setLocalRoom(){},saveLocalState(){},notify(){},
+    financialState,applyOperation,setLocalRoom(){},setLocalUser(){},clearAccountCache(){},saveLocalState(){},notify(){},
     setState:next=>{context.state=next;},sanitizeRoomId:x=>x,getShareUrl:x=>x,
     showToast(){},reportError(){},ref:(_,path)=>path,off(){},
     signInAnonymously:async()=>({user:{uid:require('node:crypto').randomUUID()}}),
     get:async()=>({exists:()=>true,val:()=>structuredClone(db.value)}),
-    onValue:(path,cb)=>{if(path==='.info/connected'){cb({val:()=>true});}else{db.listeners.push(cb);cb({val:()=>structuredClone(db.value)});}},
+    onValue:(path,cb)=>{if(path==='.info/connected'){cb({val:()=>true});}else if(path.includes('/access/users/')){cb({val:()=>({role:'owner',memberId:'a'})});}else{db.listeners.push(cb);cb({val:()=>structuredClone(db.value.state)});}return ()=>{};},
+    roomRequest:async input=>{
+      if(input.action==='join')return {access:{role:'owner',memberId:'a',users:[]}};
+      if(db.fail)throw new Error('network failure');
+      try{db.value={...db.value,state:applyOperation(db.value.state,input.operation)};}catch(error){error.code='functions/failed-precondition';throw error;}
+      for(const cb of db.listeners)cb({val:()=>structuredClone(db.value.state)});
+      return {state:structuredClone(db.value.state)};
+    },
     runTransaction:async(path,fn)=>{
       if(db.fail) throw new Error('network failure');
       const next=fn(structuredClone(db.value));
       if(next===undefined)return {committed:false};
       db.value=next;
-      for(const cb of db.listeners)cb({val:()=>structuredClone(db.value)});
+      for(const cb of db.listeners)cb({val:()=>structuredClone(db.value.state)});
       return {committed:true,snapshot:{val:()=>structuredClone(db.value)}};
     }
   });
   vm.runInContext(strip('js/services/syncService.js'),context);
-  return {context,storage,call:code=>vm.runInContext(code,context),start:async()=>{await context.initFirebaseAuth();await context.joinRoom('test');}};
+  return {context,storage,call:code=>vm.runInContext(code,context),start:async()=>{await context.initFirebaseAuth({uid,email:`${uid}@example.com`,emailVerified:true});await context.joinRoom('test');}};
 }
 test('two real sync controllers merge concurrent entries and preserve room metadata',async()=>{
   const db=server(),a=client(db),b=client(db);await a.start();await b.start();
@@ -74,4 +81,17 @@ test('two tabs sharing localStorage cannot overwrite each others durable outbox'
   const reloaded=client(db,storage);await reloaded.start();
   assert.equal(reloaded.context.getSyncContext().pendingCount,2);
   await reloaded.context.syncToCloud();assert.equal(db.value.state.expenses.length,2);
+});
+test('different accounts cannot replay another accounts durable pending operations',async()=>{
+  const db=server(),storage=new Map(),a=client(db,storage,'alice');await a.start();
+  a.context.entry=expense('private');a.call("dispatchOperation('expense.save',entry)");
+  const b=client(db,storage,'bob');await b.start();assert.equal(b.context.getSyncContext().pendingCount,0);
+  const again=client(db,storage,'alice');await again.start();assert.equal(again.context.getSyncContext().pendingCount,1);
+});
+test('a late cloud response cannot repopulate state after signout',async()=>{
+  const db=server(),a=client(db);await a.start();a.context.entry=expense('private');a.call("dispatchOperation('expense.save',entry)");
+  let resolve;a.context.roomRequest=()=>new Promise(done=>{resolve=done;});
+  const request=a.context.syncToCloud();a.context.stopAccountSession();
+  resolve({state:{...initial(),expenses:[expense('late')]}});await request;
+  assert.equal(a.context.getSyncContext().currentUserUid,null);assert.equal(a.context.state.expenses.length,0);
 });

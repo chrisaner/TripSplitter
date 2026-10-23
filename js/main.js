@@ -1,14 +1,15 @@
-import './firebase.js?v=20261022-5';
-import './state.js?v=20261022-5';
-import './data.js?v=20261022-5';
+import './firebase.js?v=20261023-auth1';
+import './state.js?v=20261023-auth1';
+import './data.js?v=20261023-auth1';
 
-import { sanitizeRoomId } from './utils.js?v=20261022-5';
-import { bindStaticEvents, bindDelegatedEvents } from './events.js?v=20261022-5';
-import { initFirebaseAuth, joinRoom, syncToCloud, setSyncStatus } from './services/syncService.js?v=20261022-5';
-import { showToast } from './services/errorService.js?v=20261022-5';
-import { subscribe } from './state/store.js?v=20261022-5';
-import { renderApp, renderAppBootstrap } from './ui/appRenderer.js?v=20261022-5';
-import { bindManagement } from './ui/managementUI.js?v=20261022-5';
+import { bindStaticEvents, bindDelegatedEvents } from './events.js?v=20261023-auth1';
+import { syncToCloud } from './services/syncService.js?v=20261023-auth1';
+import { bindAccount, renderAccount } from './ui/accountUI.js?v=20261023-auth1';
+import { subscribe } from './state/store.js?v=20261023-auth1';
+import { renderApp, renderAppBootstrap } from './ui/appRenderer.js?v=20261023-auth1';
+import { bindManagement } from './ui/managementUI.js?v=20261023-auth1';
+import { stopOCRWatch } from './services/ocrService.js?v=20261023-auth1';
+import { getSyncContext } from './services/syncService.js?v=20261023-auth1';
 
 window.addEventListener('DOMContentLoaded', async () => {
   bindStaticEvents();
@@ -16,22 +17,13 @@ window.addEventListener('DOMContentLoaded', async () => {
   bindManagement();
 
   subscribe(() => {
+    if(!getSyncContext().ready)stopOCRWatch();
     renderApp();
+    renderAccount();
   });
 
   renderAppBootstrap();
-  if (new URLSearchParams(location.search).get('room')) setSyncStatus('joining');
   document.getElementById('sync-text')?.addEventListener('click', syncToCloud);
 
-  // 1. 初始化 Firebase 身份驗證
-  const uid = await initFirebaseAuth();
-
-  // 2. 檢查 URL 是否帶有 room 參數
-  const params = new URLSearchParams(window.location.search);
-  const room = sanitizeRoomId(params.get('room') || '');
-
-  if (room && uid) {
-    // 成功加入房間並啟動監聽
-    try { await joinRoom(room); } catch (error) { showToast(error.message, 'error'); }
-  }
+  bindAccount();
 });

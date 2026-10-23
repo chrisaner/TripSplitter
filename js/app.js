@@ -1,11 +1,11 @@
-import { state } from './state.js?v=20261022-5';
-import { getPoolBalance } from './data.js?v=20261022-5';
-import { renderActivity, renderAll } from './ui.js?v=20261022-5';
-import { dispatchOperation } from './services/syncService.js?v=20261022-5';
-import { showToast } from './services/errorService.js?v=20261022-5';
-import { settlement, money, CURRENCIES } from './core/ledger.js?v=20261022-5';
-import { escapeHtml } from './utils.js?v=20261022-5';
-import { renderPoolDetails } from './ui/managementUI.js?v=20261022-5';
+import { state } from './state.js?v=20261023-auth1';
+import { getPoolBalance } from './data.js?v=20261023-auth1';
+import { renderActivity, renderAll } from './ui.js?v=20261023-auth1';
+import { dispatchOperation } from './services/syncService.js?v=20261023-auth1';
+import { showToast } from './services/errorService.js?v=20261023-auth1';
+import { settlement, money, CURRENCIES } from './core/ledger.js?v=20261023-auth1';
+import { escapeHtml } from './utils.js?v=20261023-auth1';
+import { renderPoolDetails } from './ui/managementUI.js?v=20261023-auth1';
 
 export function switchTab(tab) {
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));

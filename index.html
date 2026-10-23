@@ -6,10 +6,36 @@
   <title>TripSplitter Firebase Sync</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/style.css?v=20261022-5" />
+  <link rel="stylesheet" href="./css/style.css?v=20261023-auth1" />
 </head>
 <body>
-  <div class="app-container shadow-2xl">
+  <section id="auth-gate" class="auth-shell">
+    <div class="auth-card">
+      <h1>TripSplitter</h1><p class="empty-note">登入後，只有受邀帳號才能查看旅程與記帳。</p>
+      <p id="auth-message" role="status" aria-live="polite">正在確認登入狀態…</p>
+      <form id="login-form" hidden>
+        <label for="login-email">Email</label><input id="login-email" class="management-input" type="email" autocomplete="username" required maxlength="254">
+        <label for="login-password">密碼</label><input id="login-password" class="management-input" type="password" autocomplete="current-password" required minlength="8" maxlength="128">
+        <label for="signup-name">顯示名稱（註冊時使用）</label><input id="signup-name" class="management-input" autocomplete="nickname" maxlength="100">
+        <button class="management-button auth-primary" type="submit">登入</button>
+        <button id="signup-btn" class="management-button" type="button">建立帳號</button>
+        <button id="google-login-btn" class="management-button" type="button">使用 Google 登入</button>
+        <button id="forgot-password-btn" class="management-button" type="button">忘記密碼</button>
+        <p class="empty-note">新密碼至少 8 字元。註冊後請先驗證 Email，再用管理員提供的旅程連結加入。</p>
+      </form>
+      <div id="signed-in-gate" hidden>
+        <p id="gate-account"></p>
+        <div id="verify-actions" hidden><button id="verify-send-btn" class="management-button">寄送驗證信</button><button id="verify-reload-btn" class="management-button">我已完成驗證</button></div>
+        <div id="room-actions" hidden>
+          <label for="join-room-code">旅程代碼</label><input id="join-room-code" class="management-input" maxlength="80" placeholder="例如 tokyo-2026-kris">
+          <button id="join-room-btn" class="management-button auth-primary">加入旅程</button><button id="create-room-btn" class="management-button">建立新旅程</button>
+          <button id="list-rooms-btn" class="management-button">查看已加入旅程</button><div id="account-rooms"></div>
+        </div>
+        <button id="gate-signout-btn" class="management-button">登出</button>
+      </div>
+    </div>
+  </section>
+  <div id="secured-app" hidden class="app-container shadow-2xl">
     <header class="p-4 flex justify-between items-center sticky top-0 bg-white/80 backdrop-blur-md z-40 border-b border-gray-50">
       <div class="flex items-center gap-2">
         <div class="w-10 h-10 bg-[#5d5fef] rounded-2xl flex items-center justify-center text-white shadow-lg">
@@ -24,7 +50,7 @@
         </div>
       </div>
       <div class="flex items-center gap-2">
-        <button id="auth-btn" class="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 transition-colors">
+        <button id="auth-btn" aria-label="帳號與旅程管理" class="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 transition-colors">
           <i class="fas fa-cloud"></i>
         </button>
         <button id="pool-btn" class="bg-orange-50 px-4 py-2 rounded-2xl border border-orange-100 text-right active:scale-95 transition-transform min-w-[108px]">
@@ -98,10 +124,26 @@
       </section>
       <section id="page-tools" class="tab-pane px-5 pt-4 space-y-5">
         <h2 class="text-2xl font-black text-[#3b3f8c]">旅程管理</h2>
-        <div class="management-card">
+        <div class="management-card space-y-3">
+          <h3>我的帳號</h3><p id="account-profile"></p><p id="account-role" class="empty-note"></p>
+          <label for="account-name">顯示名稱</label><input id="account-name" class="management-input" maxlength="100">
+          <button id="save-account-name" class="management-button">儲存名稱</button><button id="account-reset-password" class="management-button">寄送密碼重設信</button>
+          <button id="switch-room-btn" class="management-button">切換旅程</button><button id="account-signout" class="management-button">登出</button>
+          <p id="management-sync" class="empty-note"></p>
+        </div>
+        <div id="account-admin" class="management-card space-y-3" hidden>
+          <h3>帳號與權限</h3><p class="empty-note">邀請後，將此旅程連結交給對方。對方須用相同 Email 登入並完成驗證；系統不會另外寄出邀請信。</p>
+          <form id="invite-form"><label for="invite-email">受邀者 Email</label><input id="invite-email" type="email" class="management-input" required maxlength="254">
+            <label for="invite-role">權限</label><select id="invite-role" class="management-input"><option value="member">記帳成員</option><option value="viewer">唯讀成員</option><option value="admin">管理員</option></select>
+            <label for="invite-member">綁定記帳成員</label><select id="invite-member" class="management-input"></select>
+            <button type="submit" class="management-button">建立邀請</button></form>
+          <button id="refresh-account-users" class="management-button">重新整理帳號名單</button><button id="copy-room-link" class="management-button">複製旅程連結</button>
+          <div id="room-users"></div><h4>待加入邀請</h4><div id="room-invites"></div>
+          <p id="legacy-pending-note" class="empty-note"></p><button id="export-legacy-pending" class="management-button" hidden>下載舊版待同步變更</button>
+        </div>
+        <div class="management-card" hidden>
           <label for="actor-select">本裝置的異動紀錄署名</label>
           <select id="actor-select" class="management-input"></select>
-          <p id="management-sync" class="empty-note"></p>
         </div>
         <div class="management-card space-y-3">
           <h3>匯出與還原</h3>
@@ -288,7 +330,7 @@
     </div>
   </div>
 
-  <script type="module" src="./js/main.js?v=20261022-5"></script>
+  <script type="module" src="./js/main.js?v=20261023-auth1"></script>
   <div
   id="global-toast"
   class="hidden fixed top-4 left-1/2 -translate-x-1/2 z-[9999] px-4 py-3 rounded-2xl bg-[#3b3f8c] text-white font-bold shadow-xl"

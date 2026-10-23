@@ -1,11 +1,15 @@
-import { getExpenseDraft, updateExpenseDraft } from '../state/modalStore.js?v=20261022-5';
-import { renderExpenseModal } from '../ui/expenseModalUI.js?v=20261022-5';
-import { state } from '../state.js?v=20261022-5';
-import { db, storage, ref, set, onValue, storageRef, uploadBytes, getDownloadURL } from '../firebase.js?v=20261022-5';
-import { SUPPORTED_CURRENCIES } from '../state.js?v=20261022-5';
-import { openModal } from '../modal.js?v=20261022-5';
-import { getSyncContext } from './syncService.js?v=20261022-5';
-import { reportError, showToast } from './errorService.js?v=20261022-5';
+import { getExpenseDraft, updateExpenseDraft } from '../state/modalStore.js?v=20261023-auth1';
+import { renderExpenseModal } from '../ui/expenseModalUI.js?v=20261023-auth1';
+import { state } from '../state.js?v=20261023-auth1';
+import { db, storage, ref, set, onValue, storageRef, uploadBytes, getDownloadURL } from '../firebase.js?v=20261023-auth1';
+import { SUPPORTED_CURRENCIES } from '../state.js?v=20261023-auth1';
+import { openModal } from '../modal.js?v=20261023-auth1';
+import { getSyncContext } from './syncService.js?v=20261023-auth1';
+import { reportError, showToast } from './errorService.js?v=20261023-auth1';
+import { roomRequest } from './accountApi.js?v=20261023-auth1';
+let stopWatching = null;
+let receiptGeneration = 0;
+export function stopOCRWatch() { receiptGeneration++;stopWatching?.();stopWatching=null; }
 
 function normalizeCandidateAmount(candidate) {
   const text = `${candidate?.label || ''} ${candidate?.rawText || ''} ${candidate?.displayText || ''} ${candidate?.currencyText || ''}`;
@@ -97,6 +101,7 @@ export function applyOCRCandidate(index) {
 
 export async function uploadReceiptAndStartOCR(file) {
   const { currentRoomId, currentUserUid } = getSyncContext();
+  const generation=receiptGeneration;
 
   if (!currentRoomId || !currentUserUid) {
     updateExpenseDraft({
@@ -130,27 +135,9 @@ export async function uploadReceiptAndStartOCR(file) {
 	renderExpenseModal();
     updateOCRStatusUI();
 
-    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-    const imagePath = `receipts/${currentRoomId}/${draftId}.${ext}`;
-    const sRef = storageRef(storage, imagePath);
-
-    await uploadBytes(sRef, file, {
-      contentType: file.type || 'image/jpeg'
-    });
-
-    const downloadURL = await getDownloadURL(sRef);
-
-    await set(ref(db, `ocrJobs/${jobId}`), {
-      roomId: currentRoomId,
-      draftId,
-      imagePath,
-      downloadURL,
-      status: 'pending',
-      createdAt: Date.now(),
-      createdBy: currentUserUid,
-      result: null,
-      error: null
-    });
+    const response = await roomRequest({action:'uploadReceipt',roomId:currentRoomId,image:getExpenseDraft().receipt});
+    if(generation!==receiptGeneration || getSyncContext().currentUserUid!==currentUserUid || getSyncContext().currentRoomId!==currentRoomId)return;
+    const actualJobId=response.jobId;
 
     updateExpenseDraft({
 		ocr: {
@@ -164,8 +151,10 @@ export async function uploadReceiptAndStartOCR(file) {
 	renderExpenseModal();
     updateOCRStatusUI();
 
-    watchOCRJob(jobId);
+    updateExpenseDraft({ocr:{...getExpenseDraft().ocr,jobId:actualJobId}});
+    watchOCRJob(actualJobId);
   } catch (error) {
+    if(generation!==receiptGeneration || getSyncContext().currentUserUid!==currentUserUid || getSyncContext().currentRoomId!==currentRoomId)return;
     reportError(error, {
       scope: 'ocrService.uploadReceiptAndStartOCR',
       level: 'error',
@@ -175,8 +164,8 @@ export async function uploadReceiptAndStartOCR(file) {
     updateExpenseDraft({
 		ocr: {
 			status: 'error',
-			jobId,
-			draftId,
+      jobId: null,
+      draftId: null,
 			result: null,
 			error: null
 		}
@@ -188,10 +177,12 @@ export async function uploadReceiptAndStartOCR(file) {
 
 export function watchOCRJob(jobId) {
   const jobRef = ref(db, `ocrJobs/${jobId}`);
-
-  onValue(
+  stopOCRWatch();
+  const generation=receiptGeneration;
+  stopWatching=onValue(
     jobRef,
     (snapshot) => {
+      if(generation!==receiptGeneration)return;
       try {
         const job = snapshot.val();
         if (!job) return;
@@ -270,9 +261,12 @@ export function triggerReceiptUpload() {
 export async function handleReceiptFile(input) {
   if (input.files && input.files[0]) {
     const file = input.files[0];
+    if(file.size>5*1024*1024 || !['image/jpeg','image/png','image/webp'].includes(file.type))return showToast('請使用 5 MB 以下的 JPEG、PNG 或 WebP 照片','warn');
+    stopOCRWatch();const generation=receiptGeneration, account=getSyncContext();
 
     const reader = new FileReader();
     reader.onload = async (e) => {
+      const context=getSyncContext();if(generation!==receiptGeneration || account.currentUserUid!==context.currentUserUid || account.currentRoomId!==context.currentRoomId)return;
       updateExpenseDraft({
         receipt: e.target.result
       });
@@ -286,6 +280,7 @@ export async function handleReceiptFile(input) {
 }
 
 export function removeReceipt() {
+  stopOCRWatch();
   updateExpenseDraft({
     receipt: null,
     ocr: {

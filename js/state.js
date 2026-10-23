@@ -1,7 +1,13 @@
-import { financialState } from './core/ledger.js?v=20261022-5';
+import { financialState } from './core/ledger.js?v=20261023-auth1';
 export const SUPPORTED_CURRENCIES = ['TWD', 'JPY', 'KRW', 'USD', 'EUR', 'CNY'];
 let localRoom = new URLSearchParams(globalThis.location?.search || '').get('room') || 'local';
+let localUser = null;
 export function setLocalRoom(room) { localRoom = room || 'local'; }
+export function setLocalUser(uid) { localUser = uid || null; }
+export function clearAccountCache(uid) {
+  const prefix = `tripSplitterLocalState:${uid}:`;
+  for(let i=localStorage.length-1;i>=0;i--) {const key=localStorage.key(i);if(key.startsWith(prefix) || key==='tripSplitterLocalState' || /^tripSplitterLocalState:[^:]+$/.test(key))localStorage.removeItem(key);}
+}
 
 export const DEFAULT_STATE = {
   poolBalances: {
@@ -69,7 +75,8 @@ export function mergeState(remote) {
 
 export function loadLocalState() {
   try {
-    const raw = localStorage.getItem(`tripSplitterLocalState:${localRoom}`) || (localRoom === 'local' ? localStorage.getItem('tripSplitterLocalState') : null);
+    if(!localUser)return structuredClone(DEFAULT_STATE);
+    const raw = localStorage.getItem(`tripSplitterLocalState:${localUser}:${localRoom}`);
     if (!raw) return structuredClone(DEFAULT_STATE);
     const parsed = JSON.parse(raw);
     return mergeState(parsed);
@@ -85,5 +92,5 @@ export function setState(newState) {
 }
 
 export function saveLocalState() {
-  localStorage.setItem(`tripSplitterLocalState:${localRoom}`, JSON.stringify(state));
+  if(localUser)localStorage.setItem(`tripSplitterLocalState:${localUser}:${localRoom}`, JSON.stringify(state));
 }

@@ -1,13 +1,20 @@
 process.env.TZ = "Asia/Taipei";
-const admin = require("firebase-admin");
+const { initializeApp } = require("firebase-admin/app");
+const { getDatabase } = require("firebase-admin/database");
+const { getStorage } = require("firebase-admin/storage");
 const { onValueWritten } = require("firebase-functions/v2/database");
 const vision = require("@google-cloud/vision");
 
 
-admin.initializeApp();
+initializeApp(process.env.FUNCTIONS_EMULATOR === 'true' ? {
+  projectId: process.env.GCLOUD_PROJECT,
+  databaseURL: `https://${process.env.GCLOUD_PROJECT}.firebaseio.com`,
+  storageBucket: `${process.env.GCLOUD_PROJECT}.appspot.com`
+} : undefined);
+exports.roomApi = require('./accounts.cjs').roomApi;
 
-const db = admin.database();
-const bucket = admin.storage().bucket();
+const db = getDatabase();
+const bucket = getStorage().bucket();
 const visionClient = new vision.ImageAnnotatorClient();
 
 /**

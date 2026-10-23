@@ -1,0 +1,19 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "trips": {
+      "$room": {
+        "access": { "users": { "$uid": { ".read": "auth != null && auth.token.email_verified == true && auth.uid == $uid" } } },
+        "state": {
+          ".read": "auth != null && auth.token.email_verified == true && root.child('trips').child($room).child('access').child('users').child(auth.uid).exists()"
+        }
+      }
+    },
+    "ocrJobs": {
+      "$job": {
+        ".read": "auth != null && auth.token.email_verified == true && data.child('createdBy').val() == auth.uid && root.child('trips').child(data.child('roomId').val()).child('access').child('users').child(auth.uid).exists()"
+      }
+    }
+  }
+}

@@ -53,3 +53,13 @@ select.settle-select {
 summary { cursor: pointer; }
 .management-button.danger { background: #fff1f2; color: #be123c; }
 .record-pager { padding: 12px 0; display: grid; gap: 8px; }
+
+[hidden] { display:none !important; }
+.auth-shell { min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:#f7f8ff; }
+.auth-card { width:100%;max-width:440px;background:white;padding:28px;border-radius:24px;box-shadow:0 12px 45px #3b3f8c15; }
+.auth-card h1 { font-size:28px;color:#3b3f8c;font-weight:900;margin-bottom:12px; }
+.auth-card label { display:block;margin-top:14px;font-size:13px;font-weight:700; }
+.auth-card button { margin:12px 4px 0 0; }
+.auth-primary { background:#5d5fef !important;color:white !important; }
+#auth-message { margin:16px 0;color:#3b3f8c;font-size:14px; }
+#room-users .management-card,#room-invites .management-card { margin-top:12px;overflow-wrap:anywhere; }

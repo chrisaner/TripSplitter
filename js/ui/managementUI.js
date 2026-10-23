@@ -1,11 +1,12 @@
-import { state } from '../state.js?v=20261022-5';
-import { escapeHtml } from '../utils.js?v=20261022-5';
-import { money } from '../core/ledger.js?v=20261022-5';
-import { createBackup, parseBackup, exportCsv } from '../core/backup.js?v=20261022-5';
-import { getSyncContext, pendingOperations, dispatchOperation, discardPending } from '../services/syncService.js?v=20261022-5';
-import { showToast } from '../services/errorService.js?v=20261022-5';
-import { switchTab } from '../app.js?v=20261022-5';
-import { recordPage, HISTORY_PAGE_SIZE, TRASH_PAGE_SIZE } from '../core/recordPages.js?v=20261022-5';
+import { state } from '../state.js?v=20261023-auth1';
+import { escapeHtml } from '../utils.js?v=20261023-auth1';
+import { money } from '../core/ledger.js?v=20261023-auth1';
+import { createBackup, parseBackup, exportCsv } from '../core/backup.js?v=20261023-auth1';
+import { getSyncContext, pendingOperations, dispatchOperation, discardPending } from '../services/syncService.js?v=20261023-auth1';
+import { showToast } from '../services/errorService.js?v=20261023-auth1';
+import { switchTab } from '../app.js?v=20261023-auth1';
+import { recordPage, HISTORY_PAGE_SIZE, TRASH_PAGE_SIZE } from '../core/recordPages.js?v=20261023-auth1';
+import { renderAccount } from './accountUI.js?v=20261023-auth1';
 
 let selectedBackup = null;
 let historyPage = 0, trashPage = 0, pageRoom = null;
@@ -37,7 +38,8 @@ export function downloadBackup(prefix = '') {
 export function renderManagement() {
   const actor = document.getElementById('actor-select');
   const room = getSyncContext().currentRoomId || 'local';
-  if (room !== pageRoom) { historyPage = 0; trashPage = 0; pageRoom = room; }
+  const pageKey=`${getSyncContext().currentUserUid || ''}:${room}`;
+  if (pageKey !== pageRoom) { historyPage = 0; trashPage = 0; pageRoom = pageKey;selectedBackup=null;const restore=document.getElementById('restore-backup');if(restore)restore.disabled=true; }
   if (actor) {
     const selected = localStorage.getItem(`tripSplitterActor:${room}`) || '';
     actor.innerHTML = '<option value="">未指定（仍記錄裝置識別）</option>' + state.members.map(m=>`<option value="${escapeHtml(m.name)}">${escapeHtml(m.name)}${m.archived?'（已停用）':''}</option>`).join('');
@@ -60,6 +62,7 @@ export function renderManagement() {
   const sync = document.getElementById('management-sync');
   if (sync) sync.textContent = `待同步操作：${context.pendingCount} 筆。異動署名由使用者選擇，裝置識別由登入系統記錄。`;
   renderPoolDetails();
+  if(typeof renderAccount==='function')renderAccount();
 }
 export function renderPoolDetails() {
   const currency = document.getElementById('pool-currency-select')?.value || 'TWD';
