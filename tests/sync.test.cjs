@@ -18,7 +18,7 @@ function client(db, storage = new Map(), uid='test-user') {
     showToast(){},reportError(){},ref:(_,path)=>path,off(){},
     signInAnonymously:async()=>({user:{uid:require('node:crypto').randomUUID()}}),
     get:async()=>({exists:()=>true,val:()=>structuredClone(db.value)}),
-    onValue:(path,cb)=>{if(path==='.info/connected'){cb({val:()=>true});}else if(path.includes('/access/users/')){cb({val:()=>({role:'owner',memberId:'a'})});}else{db.listeners.push(cb);cb({val:()=>structuredClone(db.value.state)});}return ()=>{};},
+    onValue:(path,cb)=>{if(path==='.info/connected'){cb({val:()=>true});}else if(path.endsWith('/meta/deletion')){cb({val:()=>null});}else if(path.includes('/access/users/')){cb({val:()=>({role:'owner',memberId:'a'})});}else{db.listeners.push(cb);cb({val:()=>structuredClone(db.value.state)});}return ()=>{};},
     roomRequest:async input=>{
       if(input.action==='join')return {access:{role:'owner',memberId:'a',users:[]}};
       if(db.fail)throw new Error('network failure');

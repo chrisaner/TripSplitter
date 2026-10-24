@@ -1,13 +1,13 @@
-import { state } from './state.js?v=20261023-travel2';
-import { showToast } from './services/errorService.js?v=20261023-travel2';
-import { handleRoomJoinPrompt } from './services/syncService.js?v=20261023-travel2';
+import { state } from './state.js?v=20261024-trip1';
+import { showToast } from './services/errorService.js?v=20261024-trip1';
+import { handleRoomJoinPrompt } from './services/syncService.js?v=20261024-trip1';
 import {
   triggerReceiptUpload,
   handleReceiptFile,
   removeReceipt,
   viewFullReceipt,
   applyOCRCandidate
-} from './services/ocrService.js?v=20261023-travel2';
+} from './services/ocrService.js?v=20261024-trip1';
 
 import {
   switchTab,
@@ -15,7 +15,7 @@ import {
   calculateSettle,
   updatePool,
   refreshPoolModalDisplay
-} from './app.js?v=20261023-travel2';
+} from './app.js?v=20261024-trip1';
 
 import {
   closeModal,
@@ -23,27 +23,27 @@ import {
   openExpenseModal,
   openPoolModal,
   setTempEmoji
-} from './modal.js?v=20261023-travel2';
+} from './modal.js?v=20261024-trip1';
 
 import {
   saveExpenseDraft,
   deleteExpenseDraft
-} from './services/expenseService.js?v=20261023-travel2';
+} from './services/expenseService.js?v=20261024-trip1';
 
 import {
   saveCurrentMember,
   deleteMemberById
-} from './services/memberService.js?v=20261023-travel2';
+} from './services/memberService.js?v=20261024-trip1';
 
 import {
   getExpenseDraft,
   updateExpenseDraft,
   updateExpenseDraftSplit
-} from './state/modalStore.js?v=20261023-travel2';
+} from './state/modalStore.js?v=20261024-trip1';
 
 import {
   renderExpenseModal
-} from './ui/expenseModalUI.js?v=20261023-travel2';
+} from './ui/expenseModalUI.js?v=20261024-trip1';
 
 export function bindStaticEvents() {
   document.getElementById('split-mode').addEventListener('change',e=>updateExpenseDraft({splitMode:e.target.value,splitValues:{}}));

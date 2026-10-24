@@ -4,16 +4,33 @@
     ".write": false,
     "trips": {
       "$room": {
-        "access": { "users": { "$uid": { ".read": "auth != null && auth.token.email_verified == true && auth.uid == $uid" } } },
+        "access": {
+          "users": {
+            "$uid": {
+              ".read": "auth != null && auth.token.email_verified == true && auth.uid == $uid && !root.child('trips').child($room).child('meta').child('deletion').exists()"
+            }
+          }
+        },
         "state": {
-          ".read": "auth != null && auth.token.email_verified == true && root.child('trips').child($room).child('access').child('users').child(auth.uid).exists()"
+          ".read": "auth != null && auth.token.email_verified == true && root.child('trips').child($room).child('access').child('users').child(auth.uid).exists() && !root.child('trips').child($room).child('meta').child('deletion').exists()"
+        },
+        "meta": {
+          "deletion": {
+            ".read": "auth != null && auth.token.email_verified == true && root.child('trips').child($room).child('access').child('users').child(auth.uid).exists()"
+          }
         }
-      }
+      },
+      ".indexOn": [
+        "meta/deletion/purgeAfter"
+      ]
     },
     "ocrJobs": {
       "$job": {
-        ".read": "auth != null && auth.token.email_verified == true && data.child('createdBy').val() == auth.uid && root.child('trips').child(data.child('roomId').val()).child('access').child('users').child(auth.uid).exists()"
-      }
+        ".read": "auth != null && auth.token.email_verified == true && data.child('createdBy').val() == auth.uid && root.child('trips').child(data.child('roomId').val()).child('access').child('users').child(auth.uid).exists() && !root.child('trips').child(data.child('roomId').val()).child('meta').child('deletion').exists()"
+      },
+      ".indexOn": [
+        "roomId"
+      ]
     }
   }
 }

@@ -1,3 +1,4 @@
+const lifecycle = require('./trip-lifecycle.cjs');
 const { createHash } = require('node:crypto');
 const OWNER_EMAIL = 'chrisaner@gmail.com';
 const ADMIN_OPS = new Set(['member.save','member.archive','backup.restore','history.delete','trash.delete','settlement.settings']);
@@ -9,7 +10,7 @@ function identity(auth) {
   return {uid:auth.uid,email:auth.token.email.toLowerCase(),name:String(auth.token.name || auth.token.email).slice(0,100)};
 }
 function roomId(value) { if(typeof value!=='string' || !/^[a-zA-Z0-9_-]{1,80}$/.test(value))fail('invalid-argument','旅程代碼限 1–80 個英文字母、數字、底線及連字號');return value; }
-function member(room, user) { const found=room?.access?.users?.[user.uid];if(!found)fail('permission-denied','你尚未獲邀，或已被移除此旅程');return found; }
+function member(room, user) { lifecycle.active(room);const found=room?.access?.users?.[user.uid];if(!found)fail('permission-denied','你尚未獲邀，或已被移除此旅程');return found; }
 const isAdmin = role => ['owner','admin'].includes(role);
 function info(room,user) {
   const own=member(room,user);
@@ -22,12 +23,15 @@ function role(value) { if(!['admin','member','viewer'].includes(value))fail('inv
 function reduceRoom(raw, input, user, ledger, now=new Date().toISOString()) {
   const room=raw?structuredClone(raw):null, action=input.action;
   if(action==='create') {
+    if(room?.meta?.retiredAt)fail('already-exists','此旅程代碼已永久停用，請使用新代碼');
     if(room)fail('already-exists','旅程代碼已存在');
     const name=user.name.split('@')[0];
     return {state:ledger.financialState({members:[{id:'m1',name,emoji:'👤'}],expenses:[],poolBalances:{}}),meta:{createdAt:now,createdBy:user.uid},
       access:{ownerUid:user.uid,users:{[user.uid]:{email:user.email,role:'owner',memberId:'m1',joinedAt:now}},invites:{}}};
   }
   if(!room?.state)fail('not-found','找不到此旅程，請確認代碼或建立新旅程');
+  if(['deleteRoom','restoreRoom'].includes(action))return lifecycle.lifecycle(room,input,user,now);
+  lifecycle.active(room);
   if(action==='join') {
     if(!room.access) {
       if(user.email!==OWNER_EMAIL)fail('permission-denied','此舊旅程需要由原管理員先啟用帳號權限');

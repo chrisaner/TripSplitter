@@ -12,6 +12,7 @@ initializeApp(process.env.FUNCTIONS_EMULATOR === 'true' ? {
   storageBucket: `${process.env.GCLOUD_PROJECT}.appspot.com`
 } : undefined);
 exports.roomApi = require('./accounts.cjs').roomApi;
+exports.purgeDeletedTrips = require('./trip-cleanup.cjs').purgeDeletedTrips;
 
 const db = getDatabase();
 const bucket = getStorage().bucket();
@@ -293,6 +294,9 @@ exports.processOcrJob = onValueWritten(
     const jobId = event.params.jobId;
     const { imagePath, roomId } = after || {};
 
+    if((await db.ref(`trips/${roomId}/meta/deletion`).get()).exists() || !(await db.ref(`trips/${roomId}/state`).get()).exists()) {
+      await db.ref(`ocrJobs/${jobId}`).update({status:'error',error:'旅程已刪除，辨識已停止',processedAt:Date.now()});return;
+    }
     if (!imagePath) {
       await db.ref(`/ocrJobs/${jobId}`).update({
         status: "error",
@@ -331,6 +335,7 @@ exports.processOcrJob = onValueWritten(
         return;
       }
 
+      if((await db.ref(`trips/${roomId}/meta/deletion`).get()).exists())return;
       const parsed = parseReceiptText(text, roomId);
 
       await db.ref(`/ocrJobs/${jobId}`).update({

@@ -1,11 +1,11 @@
-import { renderSettlement } from './ui/settlementUI.js?v=20261023-travel2';
-import { state } from './state.js?v=20261023-travel2';
-import { getPoolBalance } from './data.js?v=20261023-travel2';
-import { renderActivity, renderAll } from './ui.js?v=20261023-travel2';
-import { dispatchOperation } from './services/syncService.js?v=20261023-travel2';
-import { showToast } from './services/errorService.js?v=20261023-travel2';
-import { money, CURRENCIES } from './core/ledger.js?v=20261023-travel2';
-import { renderPoolDetails } from './ui/managementUI.js?v=20261023-travel2';
+import { renderSettlement } from './ui/settlementUI.js?v=20261024-trip1';
+import { state } from './state.js?v=20261024-trip1';
+import { getPoolBalance } from './data.js?v=20261024-trip1';
+import { renderActivity, renderAll } from './ui.js?v=20261024-trip1';
+import { dispatchOperation } from './services/syncService.js?v=20261024-trip1';
+import { showToast } from './services/errorService.js?v=20261024-trip1';
+import { money, CURRENCIES } from './core/ledger.js?v=20261024-trip1';
+import { renderPoolDetails } from './ui/managementUI.js?v=20261024-trip1';
 
 export function switchTab(tab) {
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));

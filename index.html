@@ -6,7 +6,7 @@
   <title>TripSplitter Firebase Sync</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" />
-  <link rel="stylesheet" href="./css/style.css?v=20261023-travel2" />
+  <link rel="stylesheet" href="./css/style.css?v=20261024-trip1" />
 </head>
 <body>
   <section id="auth-gate" class="auth-shell">
@@ -29,7 +29,7 @@
         <div id="room-actions" hidden>
           <label for="join-room-code">旅程代碼</label><input id="join-room-code" class="management-input" maxlength="80" placeholder="例如 tokyo-2026-kris">
           <button id="join-room-btn" class="management-button auth-primary">加入旅程</button><button id="create-room-btn" class="management-button">建立新旅程</button>
-          <button id="list-rooms-btn" class="management-button">查看已加入旅程</button><div id="account-rooms"></div>
+          <button id="list-rooms-btn" class="management-button">查看旅程與回收桶</button><div id="account-rooms" class="space-y-3 mt-3"></div>
         </div>
         <button id="gate-signout-btn" class="management-button">登出</button>
       </div>
@@ -128,6 +128,7 @@
         <div class="management-card space-y-3">
           <h3>我的帳號</h3><p id="account-profile"></p><p id="account-role" class="empty-note"></p>
           <label for="account-name">顯示名稱</label><input id="account-name" class="management-input" maxlength="100">
+          <button id="tools-list-rooms-btn" class="management-button">查看旅程與回收桶</button><div id="tools-room-list" class="space-y-3"></div>
           <button id="save-account-name" class="management-button">儲存名稱</button><button id="account-reset-password" class="management-button">寄送密碼重設信</button>
           <button id="switch-room-btn" class="management-button">切換旅程</button><button id="account-signout" class="management-button">登出</button>
           <p id="management-sync" class="empty-note"></p>
@@ -142,6 +143,7 @@
           <div id="room-users"></div><h4>待加入邀請</h4><div id="room-invites"></div>
           <p id="legacy-pending-note" class="empty-note"></p><button id="export-legacy-pending" class="management-button" hidden>下載舊版待同步變更</button>
         </div>
+        <div id="delete-trip-card" class="management-card space-y-3" hidden><h3>刪除旅程</h3><p class="empty-note">只有擁有者能刪除整個旅程。刪除後所有成員停止存取，擁有者可在 30 天內至旅程回收桶復原；到期後由排程永久清除帳目與收據。</p><button id="open-delete-trip" class="management-button danger">刪除此旅程</button></div>
         <div class="management-card" hidden>
           <label for="actor-select">本裝置的異動紀錄署名</label>
           <select id="actor-select" class="management-input"></select>
@@ -180,6 +182,7 @@
       </button>
     </nav>
 
+    <div id="deleteTripModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="delete-trip-title"><div class="modal-content p-6 space-y-4"><h3 id="delete-trip-title" class="text-xl font-black">刪除旅程確認</h3><p id="delete-trip-summary"></p><p class="empty-note">刪除後停止所有成員存取，30 天內可由擁有者復原。到期後排程永久清除帳目、權限、收據與 OCR 資料；旅程代碼將停用。已下載的備份不會被遠端刪除。</p><button id="delete-trip-backup" class="management-button">先下載 JSON 備份</button><label for="delete-trip-confirmation">請輸入完整旅程代碼</label><input id="delete-trip-confirmation" class="management-input" autocomplete="off"><div class="flex gap-3"><button id="delete-trip-confirm" class="management-button danger" disabled>確認刪除旅程</button><button id="delete-trip-cancel" class="management-button">取消</button></div></div></div>
     <div id="expenseModal" class="modal-overlay">
       <div class="modal-content p-6">
         <div class="flex justify-between items-center mb-6">
@@ -336,7 +339,7 @@
     </div>
   </div>
 
-  <script type="module" src="./js/main.js?v=20261023-travel2"></script>
+  <script type="module" src="./js/main.js?v=20261024-trip1"></script>
   <div
   id="global-toast"
   class="hidden fixed top-4 left-1/2 -translate-x-1/2 z-[9999] px-4 py-3 rounded-2xl bg-[#3b3f8c] text-white font-bold shadow-xl"

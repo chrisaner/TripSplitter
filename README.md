@@ -65,3 +65,15 @@ Realtime Database 預設禁止讀寫；只開放已驗證旅程成員讀取 stat
 JSON 完整備份保留新分帳資料、固定匯率與還款；CSV 提供分攤額、多人代付、還款及固定匯率供檢視。舊 JSON 相容，未包含新資料的舊備份還原後，新功能資料也回到當時的空白狀態。
 
 新增測試 `tests/travel-features.test.mjs`。Firebase 整合與安全規則測試共用模擬器資料庫，應依序執行：`node --test --test-concurrency=1 tests/accounts.integration.cjs tests/security.rules.test.cjs`，避免規則測試清除資料影響整合測試。使用前述模擬器環境變數；禁止將測試資料寫入正式旅程。
+
+## 旅程刪除與回收桶（2026-10-24）
+
+只有 access.ownerUid 所指且仍具有 owner 角色的帳號能刪除或復原整個旅程，管理員不能代為刪除。在「管理 → 刪除此旅程」先下載 JSON 備份，再輸入完整旅程代碼確認。尚未同步完成時不能刪除；確認後若帳目版本改變，後端拒絕並要求重新確認。
+
+刪除後關閉所有成員的讀寫與收據／OCR API，前端監聽刪除狀態並清除畫面快取。擁有者可由「查看旅程與回收桶」於伺服器判定的 30 天期限內復原，恢復原帳目與成員資格。刪除、復原均遞增 revision 與 epoch，舊裝置待同步操作不能直接重播；異動紀錄保留執行帳號。已下載的備份、離線副本與既有公開 Storage Token 連結無法藉軟刪除收回。
+
+purgeDeletedTrips 每小時執行一次，每次處理最多 10 個到期旅程。期限一到即不可復原，資料於排程成功處理時清除；清除失敗保留 purging 狀態並重試。依旅程前綴清除收據、OCR、成員索引、權限與財務資料，只留下不含個資的代碼停用標記，避免舊連結與舊佇列指向別人的新旅程。Firebase 登入帳號不會因刪除旅程而刪除。儲存供應商的備援／軟刪除保存期仍依雲端政策，不等同應用程式能再復原。
+
+部署範圍：functions:roomApi,functions:processOcrJob,functions:purgeDeletedTrips,database。此功能不啟用暫存的登入鎖定或費用保護，也不需要簽發自訂 Token 的 signBlob 權限。
+
+驗證：單元測試之外，在隔離模擬器依序執行 node --test --test-concurrency=1 tests/accounts.integration.cjs tests/trip-lifecycle.integration.cjs tests/security.rules.test.cjs；包含擁有者限制、刪除即時通知、復原期限、舊操作攔截、清除失敗重試與收據／OCR 範圍隔離。

@@ -1,15 +1,15 @@
-import { state, setState, saveLocalState, DEFAULT_STATE, setLocalRoom, setLocalUser, clearAccountCache } from '../state.js?v=20261023-travel2';
-import { sanitizeRoomId, getShareUrl } from '../utils.js?v=20261023-travel2';
-import { db, ref, onValue, off } from '../firebase.js?v=20261023-travel2';
-import { roomRequest } from './accountApi.js?v=20261023-travel2';
-import { reportError, showToast } from './errorService.js?v=20261023-travel2';
-import { applyOperation, financialState } from '../core/ledger.js?v=20261023-travel2';
-import { notify } from '../state/store.js?v=20261023-travel2';
+import { state, setState, saveLocalState, DEFAULT_STATE, setLocalRoom, setLocalUser, clearAccountCache } from '../state.js?v=20261024-trip1';
+import { sanitizeRoomId, getShareUrl } from '../utils.js?v=20261024-trip1';
+import { db, ref, onValue, off } from '../firebase.js?v=20261024-trip1';
+import { roomRequest } from './accountApi.js?v=20261024-trip1';
+import { reportError, showToast } from './errorService.js?v=20261024-trip1';
+import { applyOperation, financialState } from '../core/ledger.js?v=20261024-trip1';
+import { notify } from '../state/store.js?v=20261024-trip1';
 
 let currentRoomId = sanitizeRoomId(new URL(location.href).searchParams.get('room') || '') || null, currentUserUid = null, roomRef = null;
 let base = financialState(state), pending = [], busy = false, ready = false, online = false, saveTimer;
 let status = 'local';
-let account = null, access = null, session = 0, unsubscribeConnection = null, membershipRef = null;
+let account = null, access = null, session = 0, unsubscribeConnection = null, membershipRef = null, lifecycleRef = null;
 const queueKey = () => `tripSplitterOutbox:${currentUserUid}:${currentRoomId || 'local'}`;
 const queuePrefix = () => `${queueKey()}:op:`;
 let persistedIds = new Set(), operationOrder = Date.now();
@@ -44,18 +44,20 @@ export function canOperate(type,data={}) {
   return access?.role==='member' && (['expense.save','expense.delete','expense.restore'].includes(type) || (type==='pool.change' && data.mode==='add'));
 }
 export function setRoomAccess(value) { access=value;notify(); }
-function clearView() { document.getElementById('trip-report-preview')?.remove?.(); setState({...structuredClone(DEFAULT_STATE),...financialState({members:[],expenses:[],poolBalances:{}})}); }
+function clearView() { document.querySelectorAll?.('.modal-overlay')?.forEach(modal=>{modal.style.display='none';}); document.getElementById('trip-report-preview')?.remove?.(); setState({...structuredClone(DEFAULT_STATE),...financialState({members:[],expenses:[],poolBalances:{}})}); }
 export function stopAccountSession() {
-  session++;clearTimeout(saveTimer);if(roomRef)off(roomRef);if(membershipRef)off(membershipRef);unsubscribeConnection?.();unsubscribeConnection=null;
+  session++;clearTimeout(saveTimer);if(roomRef)off(roomRef);if(membershipRef)off(membershipRef);if(lifecycleRef)off(lifecycleRef);unsubscribeConnection?.();unsubscribeConnection=null;
   if(currentUserUid)clearAccountCache(currentUserUid);
-  currentUserUid=null;account=null;access=null;roomRef=null;membershipRef=null;pending=[];persistedIds=new Set();busy=false;ready=false;online=false;
+  currentUserUid=null;account=null;access=null;roomRef=null;membershipRef=null;lifecycleRef=null;pending=[];persistedIds=new Set();busy=false;ready=false;online=false;
   setLocalUser(null);clearView();base=financialState(state);notify();
 }
 function accessRevoked() {
-  session++;clearTimeout(saveTimer);if(roomRef)off(roomRef);if(membershipRef)off(membershipRef);
+  session++;clearTimeout(saveTimer);if(roomRef)off(roomRef);if(membershipRef)off(membershipRef);if(lifecycleRef)off(lifecycleRef);lifecycleRef=null;
   access=null;ready=false;busy=false;pending=[];persistedIds=new Set();clearAccountCache(currentUserUid);clearView();base=financialState(state);
-  setSyncStatus('error','沒有此旅程的存取權限');notify();
+  const message=document.getElementById('auth-message');if(message)message.textContent='旅程已刪除或存取權限已失效。請查看旅程與回收桶，或聯絡擁有者。';
+  setSyncStatus('error','旅程已刪除或沒有存取權限');notify();
 }
+export function clearDeletedRoomView() { accessRevoked(); }
 export function setSyncStatus(next, detail = '') {
   status = next;
   const text = document.getElementById('sync-text');
@@ -64,6 +66,7 @@ export function setSyncStatus(next, detail = '') {
   if (dot) dot.className = `w-2 h-2 rounded-full mr-1.5 ${next === 'synced' ? 'bg-green-500' : next === 'error' || next === 'conflict' ? 'bg-red-500' : 'bg-gray-300'}`;
   const banner = document.getElementById('sync-conflict');
   if (banner) banner.hidden = next !== 'conflict';
+  notify();
 }
 function project() {
   let view = base;
@@ -119,13 +122,15 @@ export async function joinRoom(roomId) {
   const response=await roomRequest({action:'join',roomId});
   if(before!==session)return;
   const token=++session;
-  if (roomRef) off(roomRef);if(membershipRef)off(membershipRef);
+  if (roomRef) off(roomRef);if(membershipRef)off(membershipRef);if(lifecycleRef)off(lifecycleRef);lifecycleRef=null;
   access=response.access;
   currentRoomId = roomId; ready = false; setSyncStatus('joining'); setLocalRoom(roomId);
   pending = loadQueue(); saveQueue(); localStorage.removeItem(queueKey());
   const url = new URL(location.href); url.searchParams.set('room', roomId); history.replaceState({}, '', url);
   roomRef = ref(db, `trips/${roomId}/state`);
   try {
+    lifecycleRef=ref(db,`trips/${roomId}/meta/deletion`);
+    onValue(lifecycleRef,snapshot=>{if(token===session && snapshot.val())accessRevoked();},()=>{if(token===session)accessRevoked();});
     membershipRef=ref(db,`trips/${roomId}/access/users/${currentUserUid}`);
     onValue(membershipRef,snapshot=>{
       if(token!==session)return;

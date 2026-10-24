@@ -1,9 +1,9 @@
-import { state } from '../state.js?v=20261023-travel2';
-import { settlementReport, CURRENCIES, money, units, decimals } from '../core/ledger.js?v=20261023-travel2';
-import { escapeHtml as esc } from '../utils.js?v=20261023-travel2';
-import { dispatchOperation, getSyncContext, canOperate, isRoomAdmin } from '../services/syncService.js?v=20261023-travel2';
-import { showToast } from '../services/errorService.js?v=20261023-travel2';
-import { printTripReport } from './tripReport.js?v=20261023-travel2';
+import { state } from '../state.js?v=20261024-trip1';
+import { settlementReport, CURRENCIES, money, units, decimals } from '../core/ledger.js?v=20261024-trip1';
+import { escapeHtml as esc } from '../utils.js?v=20261024-trip1';
+import { dispatchOperation, getSyncContext, canOperate, isRoomAdmin } from '../services/syncService.js?v=20261024-trip1';
+import { showToast } from '../services/errorService.js?v=20261024-trip1';
+import { printTripReport } from './tripReport.js?v=20261024-trip1';
 const name=id=>state.members.find(m=>m.id===id)?.name || id;
 const button=(text,attr,disabled=false)=>`<button type="button" class="management-button" ${attr} ${disabled?'disabled':''}>${text}</button>`;
 function available(g,t) {

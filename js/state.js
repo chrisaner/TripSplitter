@@ -1,4 +1,4 @@
-import { financialState } from './core/ledger.js?v=20261023-travel2';
+import { financialState } from './core/ledger.js?v=20261024-trip1';
 export const SUPPORTED_CURRENCIES = ['TWD', 'JPY', 'KRW', 'USD', 'EUR', 'CNY'];
 let localRoom = new URLSearchParams(globalThis.location?.search || '').get('room') || 'local';
 let localUser = null;

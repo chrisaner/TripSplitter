@@ -1,11 +1,13 @@
-import { auth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification, updateProfile, signOut, reload, signInWithPopup, GoogleAuthProvider } from '../firebase.js?v=20261023-travel2';
-import { state } from '../state.js?v=20261023-travel2';
-import { getSyncContext, initFirebaseAuth, joinRoom, stopAccountSession, setRoomAccess, isRoomAdmin } from '../services/syncService.js?v=20261023-travel2';
-import { roomRequest } from '../services/accountApi.js?v=20261023-travel2';
-import { escapeHtml, getShareUrl } from '../utils.js?v=20261023-travel2';
-import { showToast } from '../services/errorService.js?v=20261023-travel2';
+import { downloadBackup } from './managementUI.js?v=20261024-trip1';
+import { openModal, closeModal } from '../modal.js?v=20261024-trip1';
+import { auth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, sendEmailVerification, updateProfile, signOut, reload, signInWithPopup, GoogleAuthProvider } from '../firebase.js?v=20261024-trip1';
+import { state } from '../state.js?v=20261024-trip1';
+import { getSyncContext, initFirebaseAuth, joinRoom, stopAccountSession, setRoomAccess, isRoomAdmin, clearDeletedRoomView } from '../services/syncService.js?v=20261024-trip1';
+import { roomRequest } from '../services/accountApi.js?v=20261024-trip1';
+import { escapeHtml, getShareUrl } from '../utils.js?v=20261024-trip1';
+import { showToast } from '../services/errorService.js?v=20261024-trip1';
 
-let user=null, initialized=false, picker=false, authTurn=0;
+let user=null, initialized=false, picker=false, authTurn=0, deleteTarget=null, roomList=null;
 const el=id=>document.getElementById(id);
 const roleName=role=>({owner:'旅程擁有者',admin:'管理員',member:'記帳成員',viewer:'唯讀成員'})[role] || '尚未加入旅程';
 const message=text=>{el('auth-message').textContent=text;};
@@ -18,7 +20,7 @@ async function perform(button, fn) {
   finally {if(button)button.disabled=false;}
 }
 async function enterUser(next) {
-  const turn=++authTurn;stopAccountSession();user=next;initialized=true;
+  const turn=++authTurn;roomList=null;deleteTarget=null;el('account-rooms').innerHTML='';el('tools-room-list').innerHTML='';stopAccountSession();user=next;initialized=true;
   el('global-toast')?.classList.add('hidden');
   document.querySelectorAll('.modal-overlay').forEach(modal=>{modal.style.display='none';});
   ['receipt-image','full-receipt-display'].forEach(id=>el(id)?.removeAttribute('src'));
@@ -45,7 +47,8 @@ export function renderAccount() {
   el('account-role').textContent=`${context.currentRoomId} · ${roleName(context.role)}`;
   if(document.activeElement!==el('account-name'))el('account-name').value=user.displayName || '';
   const admin=isRoomAdmin(), owner=context.role==='owner';
-  el('account-admin').hidden=!admin;
+  el('account-admin').hidden=!admin;el('delete-trip-card').hidden=!owner;
+  el('open-delete-trip').disabled=!owner || context.pendingCount>0 || context.status!=='synced';
   el('invite-role').querySelector('option[value="admin"]').disabled=!owner;
   const memberOptions=(selected='')=>'<option value="">未綁定</option>'+state.members.map(m=>`<option value="${escapeHtml(m.id)}" ${m.id===selected?'selected':''}>${escapeHtml(m.name)}${m.archived?'（已停用）':''}</option>`).join('');
   const current=el('invite-member').value;el('invite-member').innerHTML=memberOptions(current);
@@ -74,6 +77,15 @@ async function logout() {
   if(getSyncContext().pendingCount)throw new Error('還有待同步變更，請先完成同步，或下載後採用雲端版本，再登出。');
   await signOut(auth);el('login-password').value='';picker=false;
 }
+export function roomListHtml(rooms) {
+  const active=rooms.filter(r=>!r.deletion),deleted=rooms.filter(r=>r.deletion);
+  return '<h4>可用旅程</h4>'+(active.map(r=>`<button class="management-button" data-join-room="${escapeHtml(r.roomId)}">${escapeHtml(r.roomId)} · ${roleName(r.role)}</button>`).join('') || '<p class="empty-note">尚無可用旅程。</p>')+'<h4>旅程回收桶</h4>'+(deleted.map(r=>`<div class="management-card"><strong>${escapeHtml(r.roomId)}</strong><p class="empty-note">復原期限：${escapeHtml(new Date(r.deletion.purgeAfter).toLocaleString('zh-TW'))}</p><button class="management-button" data-restore-room="${escapeHtml(r.roomId)}" ${r.deletion.canRestore?'':'disabled'}>${r.deletion.canRestore?'復原並開啟':'已到期，待永久清除'}</button></div>`).join('') || '<p class="empty-note">沒有可復原的旅程。僅顯示你擁有的已刪除旅程。</p>');
+}
+async function loadRoomList() {
+  const turn=authTurn,uid=user?.uid;if(!uid)return;
+  const {rooms}=await roomRequest({action:'list'});if(turn!==authTurn || uid!==user?.uid)return;
+  roomList=rooms;for(const id of ['account-rooms','tools-room-list'])el(id).innerHTML=roomListHtml(rooms);
+}
 export function bindAccount() {
   el('join-room-code').value=new URL(location.href).searchParams.get('room') || '';
   el('login-form').addEventListener('submit',event=>{event.preventDefault();perform(event.submitter,async()=>{
@@ -96,10 +108,32 @@ export function bindAccount() {
   for(const [id,create] of [['join-room-btn',false],['create-room-btn',true]])el(id).addEventListener('click',event=>perform(event.currentTarget,async()=>{
     const room=el('join-room-code').value.trim();if(create)await roomRequest({action:'create',roomId:room});await joinRoom(room);picker=false;renderAccount();
   }));
-  el('list-rooms-btn').addEventListener('click',event=>perform(event.currentTarget,async()=>{
-    const {rooms}=await roomRequest({action:'list'});el('account-rooms').innerHTML=rooms.map(r=>`<button class="management-button" data-join-room="${escapeHtml(r.roomId)}">${escapeHtml(r.roomId)} · ${roleName(r.role)}</button>`).join('') || '<p class="empty-note">尚未加入旅程。</p>';
+  for(const id of ['list-rooms-btn','tools-list-rooms-btn'])el(id).addEventListener('click',event=>perform(event.currentTarget,loadRoomList));
+  for(const id of ['account-rooms','tools-room-list'])el(id).addEventListener('click',event=>{
+    const button=event.target.closest('[data-join-room],[data-restore-room]');if(!button)return;
+    perform(button,async()=>{
+      const roomId=button.dataset.joinRoom || button.dataset.restoreRoom;
+      if(button.dataset.restoreRoom){const entry=roomList?.find(r=>r.roomId===roomId);if(!entry?.deletion?.canRestore)throw new Error('請重新整理旅程回收桶');await roomRequest({action:'restoreRoom',roomId,deletionId:entry.deletion.id});}
+      await joinRoom(roomId);picker=false;renderAccount();await loadRoomList();
+    });
+  });
+  el('open-delete-trip').addEventListener('click',()=>{
+    const context=getSyncContext();if(context.role!=='owner' || !context.ready || context.pendingCount || context.status!=='synced')return;
+    deleteTarget={roomId:context.currentRoomId,uid:user.uid,expectedRevision:Number(state.revision || 0),expectedEpoch:Number(state.epoch || 0),requestId:crypto.randomUUID()};
+    el('delete-trip-summary').textContent=context.currentRoomId+'：'+state.expenses.length+' 筆帳目、'+state.members.length+' 位記帳成員。建議先下載備份。';
+    el('delete-trip-confirmation').value='';el('delete-trip-confirm').disabled=true;openModal('deleteTripModal');el('delete-trip-confirmation').focus();
+  });
+  el('delete-trip-confirmation').addEventListener('input',()=>{el('delete-trip-confirm').disabled=!deleteTarget || el('delete-trip-confirmation').value.trim()!==deleteTarget.roomId;});
+  el('delete-trip-backup').addEventListener('click',()=>downloadBackup('刪除旅程前-'));
+  el('delete-trip-cancel').addEventListener('click',()=>{deleteTarget=null;closeModal(null,'deleteTripModal');});
+  document.addEventListener('keydown',event=>{if(event.key==='Escape'){deleteTarget=null;closeModal(null,'deleteTripModal');}});
+  el('delete-trip-confirm').addEventListener('click',event=>perform(event.currentTarget,async()=>{
+    const target=deleteTarget,context=getSyncContext();
+    if(!target || target.uid!==user?.uid || target.roomId!==context.currentRoomId || !context.ready || context.role!=='owner' || context.pendingCount || context.status!=='synced')throw new Error('旅程狀態已變更，請重新開啟刪除確認畫面');
+    const result=await roomRequest({...target,action:'deleteRoom',confirmation:el('delete-trip-confirmation').value.trim()});
+    deleteTarget=null;closeModal(null,'deleteTripModal');picker=true;clearDeletedRoomView();
+    message('旅程已移至回收桶，可在 '+new Date(result.deletion.purgeAfter).toLocaleString('zh-TW')+' 前復原。');renderAccount();await loadRoomList();
   }));
-  el('account-rooms').addEventListener('click',event=>{const button=event.target.closest('[data-join-room]');if(button)perform(button,async()=>{await joinRoom(button.dataset.joinRoom);picker=false;renderAccount();});});
   el('switch-room-btn').addEventListener('click',event=>perform(event.currentTarget,async()=>{if(getSyncContext().pendingCount)throw new Error('請先完成待同步變更再切換旅程');picker=true;message('輸入其他旅程代碼，或從已加入名單選擇。');renderAccount();}));
   el('save-account-name').addEventListener('click',event=>perform(event.currentTarget,async()=>{
     const name=el('account-name').value.trim();if(!name)throw new Error('請填寫顯示名稱');await updateProfile(auth.currentUser,{displayName:name});await auth.currentUser.getIdToken(true);user=auth.currentUser;renderAccount();showToast('名稱已更新','success');

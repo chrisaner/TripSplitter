@@ -25,6 +25,12 @@ test('real Firebase rules deny anonymous access, cross-room access, forged write
     await environment.withSecurityRulesDisabled(async context=>context.database().ref('trips/private/access/users/bob').remove());
     await assertFails(user('bob').ref('trips/private/state').once('value'));
     assert.equal((await assertSucceeds(user('bob').ref('trips/private/access/users/bob').once('value'))).exists(),false);
+    await environment.withSecurityRulesDisabled(async context=>context.database().ref('trips/private/meta/deletion').set({status:'deleted',deletedAt:1,purgeAfter:2}));
+    await assertSucceeds(user('alice').ref('trips/private/meta/deletion').once('value'));
+    await assertFails(user('stranger').ref('trips/private/meta/deletion').once('value'));
+    await assertFails(user('alice').ref('trips/private/state').once('value'));
+    await assertFails(user('alice').ref('trips/private/access/users/alice').once('value'));
+    await assertFails(user('alice').ref('ocrJobs/job').once('value'));
     const storage=tools('firebase/storage');
     await assertFails(storage.uploadBytes(storage.ref(environment.authenticatedContext('alice',{email_verified:true}).storage(),'receipts/private/test.png'),new Uint8Array([1,2,3])));
   } finally {await environment.cleanup();}
